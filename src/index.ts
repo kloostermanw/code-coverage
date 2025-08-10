@@ -175,6 +175,7 @@ const filter = (
   pullRequestFiles: Array<string>
 ): Stats => {
   const filters: ((f: File, folder: string) => boolean)[] = [];
+  const w = workspace.endsWith("/") ? workspace : workspace.concat("/");
 
   // Filter files with no coverage
   if (onlyWith.cover) filters.push((f) => f.metrics.lines.covered !== 0);
@@ -183,7 +184,8 @@ const filter = (
   if (onlyWith.coverableLines) filters.push((f) => f.metrics.lines.total !== 0);
 
   if (pullRequestFiles.length > 0) {
-    filters.push((f) => pullRequestFiles.includes(f.name));
+    let fileName = f.name.startsWith(w) ? f.name.slice(w.length) : f.name;
+    filters.push((f) => pullRequestFiles.includes(fileName));
   }
 
   if (onlyBetween.type) {
@@ -214,14 +216,10 @@ const filter = (
       });
   }
 
-  console.log('s', s);
-
   // If no filters are applied, return the original stats
   if (filters.length === 0) {
     return s;
   }
-
-  console.log('filters', filters);
 
   // Apply all filters to each folder and file
   s.folders.forEach((folder, key) => {
