@@ -1,0 +1,94 @@
+name: Coverage Report as Comment (Clover)
+description: Creates only (and only one ) comment on a pull request with a formatted cover report (clover.xml)
+author: Wiebe Kloosterman
+branding:
+  icon: check-square
+  color: green
+inputs:
+  github-token:
+    description: Github token (`repo` scope required)
+    required: true
+    default: ${{ github.token }}
+  dir-prefix:
+    description: Section of the file on clover report to remove
+    required: true
+    default: ${{ github.workspace }}
+  dir-prefix-keep:
+    description: |
+      Section of the `dir-prefix` to keep when creating link to file.
+      Example: if your php application is at "$REPO/backend", then you should set this to "backend"
+    required: false
+  file:
+    description: The location of the clover file
+    required: true
+  base-file:
+    description: The location of the clover file with a previous state of the coverage to compare
+    required: false
+  only-with-cover:
+    description: Should only list files with at least one line covered
+    default: false
+  only-with-coverable-lines:
+    description: Should only list files with at least one "coverable" line of code
+    default: false
+  lang:
+    description: In which language to format the numbers (https://developer.mozilla.org/pt-BR/docs/Web/JavaScript/Reference/Global_Objects/Intl#argumento_locales)
+    default: en-US
+  chart-size:
+    description: How many characters to use on chart's bar
+    default: 23
+  with-chart:
+    description: Add a chart with the distribution of coverage on files
+    default: true
+  with-table:
+    description: Add a table with a list of files and its coverage
+    default: true
+  with-branches:
+    description: Adds the column "Branches" with the branching coverage
+    default: false
+  show-percentage-change-on-table:
+    description: Show in percentage how much the file coverage changed per file
+    default: false
+  table-type-coverage:
+    description: Which of the coverage percentages to filter
+    default: "lines"
+  table-below-coverage:
+    description: Show only files below or equal to this coverage percentage
+    default: 100
+  table-above-coverage:
+    description: Show only files above or equal to this coverage percentage
+    default: 0
+  table-coverage-change:
+    description: Show only files which their coverage changed equal or above this percentage
+    default: 0
+  max-line-coverage-decrease:
+    description: how much the line coverage percentage can decrease without failing
+  max-method-coverage-decrease:
+    description: how much the method coverage percentage can decrease without failing
+  min-line-coverage:
+    description: Minimum percentage acceptable for line coverage
+    default: 0
+  min-method-coverage:
+    description: Minimum percentage acceptable for method coverage
+    default: 0
+  signature:
+    description: Custom signature to be used at the bottom of the comment
+    required: false
+  skip-comments-on-forks:
+    description: Should skip trying to comment on pull requests created from forks
+    default: false
+  icon-equals:
+    description: Emoji/text to be used when the coverage diff is zero
+    default: ":stop_button:"
+  icon-increased:
+    description: Emoji/text to be used when the coverage diff is increased
+    default: ":arrow_up_small:"
+  icon-decreased:
+    description: Emoji/text to be used when the coverage diff is decreased
+    default: ":arrow_down_small:"
+  icon-new:
+    description: Emoji/text to be used when the file file is new, and does not have previous coverage metrics to compare
+    default: ":new:"
+
+runs:
+  using: node20
+  main: bin/index.js

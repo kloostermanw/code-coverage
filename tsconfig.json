@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "declaration": false,
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "moduleResolution": "node",
+    "target": "ES2018"
+  }
+}
