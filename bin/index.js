@@ -38710,7 +38710,11 @@ var filter = function (s, onlyWith, onlyBetween, o, pullRequestFiles) {
     if (onlyWith.coverableLines)
         filters.push(function (f) { return f.metrics.lines.total !== 0; });
     if (pullRequestFiles.length > 0) {
-        filters.push(function (f) { return pullRequestFiles.includes(f.name.startsWith(w) ? f.name.slice(w.length) : f.name); });
+        filters.push(function (f) {
+            var fileName = f.name.startsWith(w) ? f.name.slice(w.length) : f.name;
+            console.log('fileName: ', fileName);
+            return pullRequestFiles.includes(fileName);
+        });
     }
     {
         // Filter files outside the specified coverage percentage range

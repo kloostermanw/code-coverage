@@ -184,7 +184,12 @@ const filter = (
   if (onlyWith.coverableLines) filters.push((f) => f.metrics.lines.total !== 0);
 
   if (pullRequestFiles.length > 0) {
-    filters.push((f) => pullRequestFiles.includes(f.name.startsWith(w) ? f.name.slice(w.length) : f.name));
+    filters.push((f) => {
+      const fileName = f.name.startsWith(w) ? f.name.slice(w.length) : f.name;
+      console.log('fileName: ', fileName);
+      return pullRequestFiles.includes(fileName);
+    });
+
   }
 
   if (onlyBetween.type) {
