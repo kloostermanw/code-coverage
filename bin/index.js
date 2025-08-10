@@ -38729,6 +38729,7 @@ var filter = function (s, onlyWith, onlyBetween, o, pullRequestFiles) {
                         onlyBetween.delta);
             });
     }
+    console.log('s: ', s);
     // If no filters are applied, return the original stats
     if (filters.length === 0) {
         return s;

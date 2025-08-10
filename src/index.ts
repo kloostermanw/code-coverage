@@ -215,6 +215,8 @@ const filter = (
       });
   }
 
+  console.log('s: ', s);
+
   // If no filters are applied, return the original stats
   if (filters.length === 0) {
     return s;
