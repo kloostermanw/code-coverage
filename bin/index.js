@@ -38702,6 +38702,7 @@ var comment = function (cStats, oldStats, coverageType, withChart, withTable) { 
 var filter = function (s, onlyWith, onlyBetween, o, pullRequestFiles) {
     if (o === void 0) { o = null; }
     var filters = [];
+    var w = workspace.endsWith("/") ? workspace : workspace.concat("/");
     // Filter files with no coverage
     if (onlyWith.cover)
         filters.push(function (f) { return f.metrics.lines.covered !== 0; });
@@ -38709,7 +38710,7 @@ var filter = function (s, onlyWith, onlyBetween, o, pullRequestFiles) {
     if (onlyWith.coverableLines)
         filters.push(function (f) { return f.metrics.lines.total !== 0; });
     if (pullRequestFiles.length > 0) {
-        filters.push(function (f) { return pullRequestFiles.includes(f.name); });
+        filters.push(function (f) { return pullRequestFiles.includes(f.name.startsWith(w) ? f.name.slice(w.length) : f.name); });
     }
     {
         // Filter files outside the specified coverage percentage range
@@ -38728,12 +38729,10 @@ var filter = function (s, onlyWith, onlyBetween, o, pullRequestFiles) {
                         onlyBetween.delta);
             });
     }
-    console.log('s', s);
     // If no filters are applied, return the original stats
     if (filters.length === 0) {
         return s;
     }
-    console.log('filters', filters);
     // Apply all filters to each folder and file
     s.folders.forEach(function (folder, key) {
         folder.files = folder.files.filter(function (f) {
