@@ -1,0 +1,279 @@
+name: example of workflow
+on:
+  pull_request:
+
+jobs:
+  build:
+    name: example of workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@master
+
+      - name: clover file not found
+        uses: ./.
+        continue-on-error: true
+        with:
+          dir-prefix: /var/www/html
+          file: not.found.xml
+          base-file: not.found.too.xml
+          signature: "file not found"
+
+      - name: clover file to comment (clover.example.xml)
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.missing.xml
+          with-chart: false
+          signature: "valid file with inexistent base-file"
+
+      - name: clover file to comment (clover.pdepend.xml)
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.pdepend.xml
+          base-file: clover.pdepend.base.xml
+          only-with-cover: true
+          signature: "valid file with valid base-file"
+
+      - name: clover file to comment (clover.example.base.xml)
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.base.xml
+          base-file: clover.example.xml
+          chart-size: 75
+          only-with-cover: true
+          signature: "valid file with valid base-file, with custom chart-size"
+
+      - name: clover file to comment - max descrease
+        uses: ./.
+        continue-on-error: true
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.example.base.xml
+          max-line-coverage-decrease: 2.0
+          max-method-coverage-decrease: 1.0
+          min-line-coverage: 99.3
+          min-method-coverage: 81.02
+          signature: "valid file with valid base-file, with blocking"
+
+      - name: clover file to comment - no descrease
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.example.base.xml
+          max-line-coverage-decrease: 3.0
+          max-method-coverage-decrease: 2.0
+          min-line-coverage: 80.0
+          min-method-coverage: 80.00
+          signature: "valid file with valid base-file, without blocking"
+
+      - name: clover file to comment - without table
+        uses: ./.
+        continue-on-error: true
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.example.base.xml
+          max-line-coverage-decrease: 2.0
+          max-method-coverage-decrease: 1.0
+          min-line-coverage: 99.3
+          min-method-coverage: 81.02
+          with-table: false
+          signature: "valid file with valid base-file, without table"
+
+      - name: clover file to comment - without table or chart
+        uses: ./.
+        continue-on-error: true
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.example.base.xml
+          max-line-coverage-decrease: 2.0
+          max-method-coverage-decrease: 1.0
+          min-line-coverage: 99.3
+          min-method-coverage: 81.02
+          with-table: false
+          with-chart: false
+          signature: "valid file with valid base-file, without table or chart"
+
+      - name: clover file to comment - only below 70% methods coverage
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.missing.xml
+          with-chart: false
+          table-below-coverage: 70
+          table-type-coverage: methods
+          signature: "clover file to comment - only below 70% methods coverage"
+
+      - name: clover file to comment - only below 80% lines coveraged
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.missing.xml
+          with-chart: false
+          table-below-coverage: 80
+          signature: "clover file to comment - only below 80% lines coveraged"
+
+      - name: clover file to comment - only above 0% methods coverage
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.missing.xml
+          with-chart: false
+          table-above-coverage: 10
+          table-type-coverage: methods
+          signature: "clover file to comment - only above 10% methods coverage"
+
+      - name: clover file to comment - invalid coverage type
+        uses: ./.
+        continue-on-error: true
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.missing.xml
+          with-chart: false
+          table-type-coverage: banana
+          signature: "clover file to comment - invalid coverage type"
+
+      - name: clover file to comment - only between 50% and 80% line coverage
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.missing.xml
+          with-chart: false
+          table-above-coverage: 50
+          table-below-coverage: 80
+          signature: "clover file to comment - only between 50% and 80% line coverage"
+
+      - name: clover file to comment - only with percentage change of 5%
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.example.base.xml
+          with-chart: false
+          table-coverage-change: 5
+          table-type-coverage: lines
+          show-percentage-change-on-table: true
+          signature: "clover file to comment - only with percentage change"
+
+      - name: clover file to comment - clover file to comment - show delta per file
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.example.base.xml
+          with-chart: false
+          show-percentage-change-on-table: true
+          signature: "clover file to comment - show delta per file"
+
+      - name: clover file to comment - only coverable lines
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: nolines.xml
+          with-chart: false
+          only-with-coverable-lines: true
+          signature: "only coverable lines"
+
+      - name: clover file to comment - only with percentage change and with some cover
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.example.xml
+          base-file: clover.example.base.xml
+          with-chart: false
+          table-coverage-change: 5
+          table-type-coverage: lines
+          show-percentage-change-on-table: true
+          only-with-cover: true
+          signature: "clover file to comment - only with percentage change and with some cover"
+
+      - name: clover file to comment - no lines after filter
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: nolines.xml
+          with-chart: true
+          table-below-coverage: 80
+          only-with-coverable-lines: true
+          signature: "clover file to comment - no lines after filter"
+
+      - name: clover file to comment - only one package
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.onepackage.xml
+          base-file: clover.onepackage.base.xml
+          with-chart: true
+          show-percentage-change-on-table: true
+          signature: "clover file to comment - only one package"
+
+      - name: clover file to comment - hide branches column
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.onepackage.xml
+          base-file: clover.onepackage.base.xml
+          with-chart: true
+          show-percentage-change-on-table: true
+          with-branches: false
+          signature: "clover file to comment - hide branches column"
+
+      - name: comment using a pat
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.onepackage.xml
+          with-chart: false
+          with-branches: false
+          signature: "comment using a pat"
+          github-token: ${{ secrets.PAT }}
+
+      - name: comment using a pat - again
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.onepackage.xml
+          with-chart: false
+          with-branches: false
+          signature: "comment using a pat"
+          github-token: ${{ secrets.PAT }}
+
+      - name: comment using custom icons
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.onepackage.xml
+          base-file: clover.onepackage.base.xml
+          with-chart: true
+          show-percentage-change-on-table: true
+          signature: "comment using custom icons"
+          icon-equals: ":eject_button:"
+          icon-increased: ":arrow_upper_right:"
+          icon-decreased: ":arrow_lower_right:"
+          icon-new: ":checkered_flag:"
+
+      - name: comment using text instead of icons
+        uses: ./.
+        with:
+          dir-prefix: /var/www/html
+          file: clover.onepackage.xml
+          base-file: clover.onepackage.base.xml
+          with-chart: true
+          show-percentage-change-on-table: true
+          icon-equals: "(same)"
+          icon-increased: "(increased)"
+          icon-decreased: "(decreased)"
+          icon-new: "(new)"
+          signature: "comment using text instead of icons"
