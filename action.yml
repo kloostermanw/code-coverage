@@ -88,6 +88,9 @@ inputs:
   icon-new:
     description: Emoji/text to be used when the file file is new, and does not have previous coverage metrics to compare
     default: ":new:"
+  pull-request-files:
+    description: List of files
+    required: false
 
 runs:
   using: node20

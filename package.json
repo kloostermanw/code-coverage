@@ -1,9 +1,10 @@
 {
-  "name": "@kloostermanw/comment-coverage-clover",
+  "name": "@kloostermanw/code-coverage",
   "version": "0.15.3",
   "description": "Creates a comment on a commit or pull request with test coverage %",
   "main": "bin/index.js",
   "source": "src/index.ts",
+  "type": "module",
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.11.1",

@@ -15529,6 +15529,20 @@ function requirePool () {
 	      ? { ...options.interceptors }
 	      : undefined;
 	    this[kFactory] = factory;
+
+	    this.on('connectionError', (origin, targets, error) => {
+	      // If a connection error occurs, we remove the client from the pool,
+	      // and emit a connectionError event. They will not be re-used.
+	      // Fixes https://github.com/nodejs/undici/issues/3895
+	      for (const target of targets) {
+	        // Do not use kRemoveClient here, as it will close the client,
+	        // but the client cannot be closed in this state.
+	        const idx = this[kClients].indexOf(target);
+	        if (idx !== -1) {
+	          this[kClients].splice(idx, 1);
+	        }
+	      }
+	    });
 	  }
 
 	  [kGetDispatcher] () {
@@ -18990,6 +19004,7 @@ function requireHeaders () {
 	  isValidHeaderName,
 	  isValidHeaderValue
 	} = requireUtil$5();
+	const util = require$$1$2;
 	const { webidl } = requireWebidl();
 	const assert = require$$0$3;
 
@@ -19536,6 +19551,9 @@ function requireHeaders () {
 	  [Symbol.toStringTag]: {
 	    value: 'Headers',
 	    configurable: true
+	  },
+	  [util.inspect.custom]: {
+	    enumerable: false
 	  }
 	});
 
@@ -25425,9 +25443,10 @@ function requireUtil$1 () {
 	if (hasRequiredUtil$1) return util$1;
 	hasRequiredUtil$1 = 1;
 
-	const assert = require$$0$3;
-	const { kHeadersList } = requireSymbols$4();
-
+	/**
+	 * @param {string} value
+	 * @returns {boolean}
+	 */
 	function isCTLExcludingHtab (value) {
 	  if (value.length === 0) {
 	    return false
@@ -25688,31 +25707,13 @@ function requireUtil$1 () {
 	  return out.join('; ')
 	}
 
-	let kHeadersListNode;
-
-	function getHeadersList (headers) {
-	  if (headers[kHeadersList]) {
-	    return headers[kHeadersList]
-	  }
-
-	  if (!kHeadersListNode) {
-	    kHeadersListNode = Object.getOwnPropertySymbols(headers).find(
-	      (symbol) => symbol.description === 'headers list'
-	    );
-
-	    assert(kHeadersListNode, 'Headers cannot be parsed');
-	  }
-
-	  const headersList = headers[kHeadersListNode];
-	  assert(headersList);
-
-	  return headersList
-	}
-
 	util$1 = {
 	  isCTLExcludingHtab,
-	  stringify,
-	  getHeadersList
+	  validateCookieName,
+	  validateCookiePath,
+	  validateCookieValue,
+	  toIMFDate,
+	  stringify
 	};
 	return util$1;
 }
@@ -26050,7 +26051,7 @@ function requireCookies () {
 	hasRequiredCookies = 1;
 
 	const { parseSetCookie } = requireParse();
-	const { stringify, getHeadersList } = requireUtil$1();
+	const { stringify } = requireUtil$1();
 	const { webidl } = requireWebidl();
 	const { Headers } = requireHeaders();
 
@@ -26126,14 +26127,13 @@ function requireCookies () {
 
 	  webidl.brandCheck(headers, Headers, { strict: false });
 
-	  const cookies = getHeadersList(headers).cookies;
+	  const cookies = headers.getSetCookie();
 
 	  if (!cookies) {
 	    return []
 	  }
 
-	  // In older versions of undici, cookies is a list of name:value.
-	  return cookies.map((pair) => parseSetCookie(Array.isArray(pair) ? pair[1] : pair))
+	  return cookies.map((pair) => parseSetCookie(pair))
 	}
 
 	/**
@@ -35564,6 +35564,14 @@ var utilsExports = requireUtils();
 
 var distNodeExports = /*@__PURE__*/ requireDistNode$6();
 
+/**
+ * Chart module for generating ASCII charts of coverage distribution
+ * This module creates visual representations of how many files fall into each coverage percentage range
+ */
+/**
+ * Creates an object with coverage percentage buckets initialized to zero
+ * @returns Object with keys for each 10% coverage bucket (0-100%)
+ */
 var percs = function () { return ({
     0: 0,
     10: 0,
@@ -35577,43 +35585,88 @@ var percs = function () { return ({
     90: 0,
     100: 0,
 }); };
+/**
+ * Reduces coverage statistics to a distribution of files by coverage percentage
+ *
+ * @param s - Coverage statistics
+ * @returns Object mapping coverage percentages to file counts
+ */
 var reduce = function (s) {
     return Array.from(s.folders.values())
+        // Flatten folders to get all files
         .reduce(function (files, f) { return __spreadArray(__spreadArray([], files, true), f.files, true); }, [])
+        // Round coverage percentages to nearest 10%
         .map(function (f) { return Math.round((f.metrics.lines.percentual || 0) * 10) * 10; })
+        // Count files in each percentage bucket
         .reduce(function (m, perc) {
         var _a;
         return Object.assign(m, (_a = {}, _a[perc] = m[perc] + 1, _a));
     }, percs());
 };
+// Chart configuration
 var size = Number(coreExports.getInput("chart-size") || 23);
-var emptyChar = "░";
-var fullChar = "█";
-var oldChar = "▒";
+var emptyChar = "░"; // Character for empty part of bar
+var fullChar = "█"; // Character for current coverage part of bar
+var oldChar = "▒"; // Character for previous coverage part of bar
+/**
+ * Generates a bar for the chart
+ *
+ * @param c - Current count
+ * @param o - Old count
+ * @param max - Maximum count (for scaling)
+ * @returns String representing the bar
+ */
 var bar = function (c, o, max) {
     return fullChar
         .repeat(Math.ceil((c / max) * size))
         .padEnd((o / max) * size, oldChar)
         .padEnd(size, emptyChar);
 };
+/**
+ * Formats a percentage for display
+ *
+ * @param p - Percentage as a decimal
+ * @returns Formatted percentage string
+ */
 var p2s$1 = function (p) {
     return p
         .toLocaleString("en", { style: "percent", minimumFractionDigits: 1 })
         .padStart(5);
 };
+/**
+ * Converts coverage distribution to a string chart
+ *
+ * @param e - Current coverage distribution
+ * @param o - Previous coverage distribution (optional)
+ * @returns ASCII chart as a string
+ */
 var tostr = function (e, o) {
+    // Find the maximum count for scaling
     var max = Math.max.apply(Math, __spreadArray(__spreadArray([], Object.values(e), false), Object.values(o || {}), false));
+    // Calculate total files for frequency
     var sum = Object.values(e).reduce(function (a, v) { return a + v; }, 0);
-    return ("Cover \u250C\u2500".concat("─".repeat(size), "\u2500\u2510 Freq.\n") +
+    return (
+    // Chart header
+    "Cover \u250C\u2500".concat("─".repeat(size), "\u2500\u2510 Freq.\n") +
+        // Chart rows
         Object.keys(e)
             .map(function (k) {
             return "".concat(k.padStart(4), "% \u2502 ").concat(bar(e[k], (o && o[k]) || 0, max), " \u2502 ").concat(p2s$1(e[k] / sum));
         })
             .join("\n") +
+        // Chart footer
         "\n      \u2514\u2500".concat("─".repeat(size), "\u2500\u2518") +
+        // Legend
         "\n *Legend:* ".concat(fullChar, " = Current Distribution ") +
         ((o && "/ ".concat(oldChar, " = Previous Distribution")) || ""));
 };
+/**
+ * Generates a Markdown code block containing a coverage distribution chart
+ *
+ * @param c - Current coverage statistics
+ * @param o - Previous coverage statistics for comparison
+ * @returns Markdown code block with the chart
+ */
 var chart = function (c, o) {
     return "\n```\n" + tostr(reduce(c), o && reduce(o)) + "\n```\n";
 };
@@ -38064,10 +38117,24 @@ function requireLib () {
 
 var libExports = requireLib();
 
+/**
+ * Types module for the comment-coverage-clover project
+ * This module defines the data structures used to represent code coverage information
+ */
+/**
+ * Represents coverage metrics for a specific aspect (lines, methods, branches)
+ */
 var Coverage = /** @class */ (function () {
+    /**
+     * Creates a new Coverage instance
+     *
+     * @param total - Total number of items that could be covered
+     * @param covered - Number of items that are actually covered
+     */
     function Coverage(total, covered) {
         this.total = Number(total);
         this.covered = Number(covered);
+        // Calculate percentage, handling division by zero
         this.percentual =
             this.total == 0
                 ? 1.0
@@ -38075,12 +38142,27 @@ var Coverage = /** @class */ (function () {
     }
     return Coverage;
 }());
+/**
+ * Represents a folder containing source files
+ */
 var Folder = /** @class */ (function () {
+    /**
+     * Creates a new Folder instance
+     *
+     * @param name - Name of the folder
+     * @param files - Array of files in the folder
+     */
     function Folder(name, files) {
         if (files === void 0) { files = []; }
         this.name = name;
         this.files = files;
     }
+    /**
+     * Adds files to the folder
+     *
+     * @param files - Files to add
+     * @returns The folder instance for chaining
+     */
     Folder.prototype.push = function () {
         var _a;
         var files = [];
@@ -38090,17 +38172,39 @@ var Folder = /** @class */ (function () {
         (_a = this.files).push.apply(_a, files);
         return this;
     };
+    /**
+     * Gets a file by name
+     *
+     * @param name - Name of the file to get
+     * @returns The file if found, null otherwise
+     */
     Folder.prototype.get = function (name) {
         var i = this.files.findIndex(function (f) { return f.name === name; });
         return i === -1 ? null : this.files[i];
     };
     return Folder;
 }());
+/**
+ * Represents coverage statistics for an entire project
+ */
 var Stats = /** @class */ (function () {
+    /**
+     * Creates a new Stats instance
+     *
+     * @param total - Total coverage metrics for the project
+     * @param folders - Map of folders containing files
+     */
     function Stats(total, folders) {
         this.total = total;
         this.folders = folders;
     }
+    /**
+     * Gets a file by folder and file name
+     *
+     * @param folder - Name of the folder
+     * @param file - Name of the file
+     * @returns The file if found, null otherwise
+     */
     Stats.prototype.get = function (folder, file) {
         var _a;
         return (_a = this.folders.get(folder)) === null || _a === void 0 ? void 0 : _a.get(file);
@@ -38108,23 +38212,47 @@ var Stats = /** @class */ (function () {
     return Stats;
 }());
 
+/**
+ * Clover module for parsing Clover XML coverage reports
+ * This module converts Clover XML data into the project's internal data structures
+ */
+/**
+ * Converts a value to an array, handling undefined, single items, and arrays
+ *
+ * @param arg - Value to convert to an array
+ * @returns Array containing the value(s)
+ */
 var asList = function (arg) {
     return !!arg ? (Array.isArray(arg) ? arg : [arg]) : [];
 };
+/**
+ * Parses a Clover XML string and converts it to Stats
+ *
+ * @param str - Clover XML string
+ * @returns Stats object representing the coverage data
+ */
 var fromString = function (str) {
+    // Parse the XML to JSON
     var _a = JSON.parse(libExports.xml2json(str, { compact: true })).coverage.project, m = _a.metrics._attributes, files = _a.file, packages = _a.package;
+    // Combine files from packages and project root
     var allFiles = asList(packages).reduce(function (acc, p) { return __spreadArray(__spreadArray([], acc, true), asList(p.file), true); }, asList(files));
+    // Create Stats object from parsed data
     return new Stats({
+        // Create total metrics
         lines: new Coverage(m.statements, m.coveredstatements),
         methods: new Coverage(m.methods, m.coveredmethods),
         branches: new Coverage(m.conditionals, m.coveredconditionals),
     }, allFiles
+        // Normalize file names
         .map(function (f) {
         f._attributes.name = f._attributes.path || f._attributes.name;
         return f;
     })
+        // Sort files by name
         .sort(function (a, b) { return (a._attributes.name < b._attributes.name ? -1 : 1); })
+        // Extract folder from file path
         .map(function (f) { return (__assign(__assign({}, f), { folder: f._attributes.name.split("/").slice(0, -1).join("/") })); })
+        // Group files by folder
         .reduce(function (files, _a) {
         var folder = _a.folder, name = _a._attributes.name, m = _a.metrics._attributes;
         return files.set(folder, (files.get(folder) || new Folder(folder)).push({
@@ -38138,16 +38266,43 @@ var fromString = function (str) {
     }, new Map()));
 };
 
+/**
+ * HTML helper module
+ * This module provides utility functions for generating HTML elements
+ */
+/**
+ * Creates an HTML tag with the given name, children, and attributes
+ *
+ * @param name - Tag name
+ * @returns Function that takes children and attributes and returns an HTML string
+ */
 var tag = function (name) {
+    /**
+     * @param children - Array of child elements
+     * @param attr - Optional attributes for the tag
+     * @returns HTML string
+     */
     return function (children, attr) {
-        return "<".concat(name).concat((attr &&
+        return "<".concat(name).concat(
+        // Add attributes if provided
+        (attr &&
             " ".concat(Object.keys(attr)
                 .map(function (k) { return k + "=" + JSON.stringify(attr[k]); })
                 .join(" "))) ||
             "", ">").concat(children.join(""), "</").concat(name, ">");
     };
 };
+/**
+ * Creates a function that generates an HTML tag with the given name
+ *
+ * @param name - Tag name
+ * @returns Function that takes children and returns an HTML string
+ */
 var c = function (name) {
+    /**
+     * @param children - Child elements
+     * @returns HTML string
+     */
     return function () {
         var children = [];
         for (var _i = 0; _i < arguments.length; _i++) {
@@ -38156,17 +38311,31 @@ var c = function (name) {
         return tag(name)(children);
     };
 };
-var details = c("details");
-var summary = c("summary");
-var table = c("table");
-var tbody = c("tbody");
-var thead = c("thead");
-var tr = c("tr");
-var th = c("th");
+// HTML tag generators
+var details = c("details"); // Creates a collapsible details element
+var summary = c("summary"); // Creates a summary for a details element
+var table = c("table"); // Creates a table
+var tbody = c("tbody"); // Creates a table body
+var thead = c("thead"); // Creates a table header
+var tr = c("tr"); // Creates a table row
+var th = c("th"); // Creates a table header cell
+/**
+ * Creates a table data cell
+ *
+ * @param content - Cell content
+ * @param attr - Optional attributes for the cell
+ * @returns HTML td element
+ */
 var td = function (content, attr) {
     return tag("td")([content], attr);
 };
-var b = c("b");
+var b = c("b"); // Creates bold text
+/**
+ * Creates a fragment of HTML content
+ *
+ * @param children - Content to include in the fragment
+ * @returns HTML fragment
+ */
 var fragment = function () {
     var children = [];
     for (var _i = 0; _i < arguments.length; _i++) {
@@ -38174,18 +38343,51 @@ var fragment = function () {
     }
     return children.join("");
 };
+/**
+ * Creates a span element
+ *
+ * @param content - Span content
+ * @param attr - Optional attributes for the span
+ * @returns HTML span element
+ */
 var span = function (content, attr) {
     return tag("span")([content], attr);
 };
+/**
+ * Creates an anchor element
+ *
+ * @param href - Link URL
+ * @param content - Link text
+ * @returns HTML anchor element
+ */
 var a = function (href, content) {
     return tag("a")([content], { href: href });
 };
 
+/**
+ * HTML module for generating HTML coverage reports
+ * This module provides functions to create HTML tables and summaries from coverage data
+ */
+/**
+ * Language for formatting numbers and percentages
+ */
 var lang = coreExports.getInput("lang") || "en-US";
+/**
+ * Base URL for file links in GitHub
+ */
 var baseUrl = "".concat(utilsExports.context.serverUrl, "/").concat(utilsExports.context.repo.owner, "/").concat(utilsExports.context.repo.repo, "/blob/").concat(utilsExports.context.sha);
+// Adjust base URL if dir-prefix-keep is specified
 if (coreExports.getInput("dir-prefix-keep")) {
     baseUrl = "".concat(baseUrl, "/").concat(coreExports.getInput("dir-prefix-keep")).replace(/\/$/, "");
 }
+/**
+ * Formats a percentage value as a string
+ *
+ * @param p - Percentage as a decimal
+ * @param lang - Language for formatting
+ * @param zero - String to display for zero values
+ * @returns Formatted percentage string
+ */
 var p2s = function (p, lang, zero) {
     if (zero === void 0) { zero = "-"; }
     return p === undefined || p == 0
@@ -38195,6 +38397,13 @@ var p2s = function (p, lang, zero) {
             minimumFractionDigits: 2,
         });
 };
+/**
+ * Formats a Coverage object as a span with tooltip
+ *
+ * @param c - Coverage object
+ * @param lang - Language for formatting
+ * @returns HTML span element with coverage percentage and tooltip
+ */
 var c2s = function (c, lang) {
     return span(p2s(c.percentual, lang), {
         title: c.covered.toLocaleString(lang, { useGrouping: true }) +
@@ -38202,12 +38411,30 @@ var c2s = function (c, lang) {
             c.total.toLocaleString(lang, { useGrouping: true }),
     });
 };
+/**
+ * Compares file coverage and returns an appropriate icon
+ *
+ * @param n - New coverage
+ * @param o - Old coverage (or null for new files)
+ * @param lang - Language for formatting
+ * @param icons - Icons for different coverage states
+ * @returns HTML span with appropriate icon
+ */
 var compareFile = function (n, o, lang, icons) {
     return " " +
         (o === null
             ? span(icons.new, { title: "new file" })
             : compare(n, o, lang, true, icons));
 };
+/**
+ * Creates a fragment of HTML content with a size limit
+ * If the content exceeds the limit, it will be truncated
+ *
+ * @param limit - Maximum length of the fragment
+ * @param noSpaceLeft - Content to append when truncated
+ * @param children - Content to include in the fragment
+ * @returns HTML fragment, possibly truncated
+ */
 var limitedFragment = function (limit, noSpaceLeft) {
     var children = [];
     for (var _i = 2; _i < arguments.length; _i++) {
@@ -38225,6 +38452,18 @@ var limitedFragment = function (limit, noSpaceLeft) {
     }
     return html;
 };
+/**
+ * Creates a table row for a file with coverage metrics
+ *
+ * @param name - Name of the file
+ * @param m - Coverage metrics for the file
+ * @param lang - Language for formatting
+ * @param icons - Icons for different coverage states
+ * @param o - Previous coverage metrics for comparison
+ * @param showDelta - Whether to show coverage change indicators
+ * @param showBranchesColumn - Whether to include the branches column
+ * @returns HTML table row
+ */
 var line = function (name, m, lang, icons, o, showDelta, showBranchesColumn) {
     if (o === void 0) { o = null; }
     if (showDelta === void 0) { showDelta = false; }
@@ -38236,6 +38475,16 @@ var line = function (name, m, lang, icons, o, showDelta, showBranchesColumn) {
         });
     }), false));
 };
+/**
+ * Compares two coverage values and returns an appropriate icon
+ *
+ * @param n - New coverage
+ * @param o - Old coverage
+ * @param lang - Language for formatting
+ * @param showDelta - Whether to show the percentage change in the tooltip
+ * @param icons - Icons for different coverage states
+ * @returns HTML span with appropriate icon and tooltip
+ */
 var compare = function (n, o, lang, showDelta, icons) {
     if (showDelta === void 0) { showDelta = false; }
     return span(n.percentual == o.percentual
@@ -38249,18 +38498,49 @@ var compare = function (n, o, lang, showDelta, icons) {
                 : ""),
     });
 };
+/**
+ * Creates a summary of a coverage metric with comparison
+ *
+ * @param name - Name of the metric
+ * @param icons - Icons for different coverage states
+ * @param c - Current coverage
+ * @param oldC - Previous coverage for comparison
+ * @returns HTML fragment with coverage summary
+ */
 var total = function (name, icons, c, oldC) {
     return c.total > 0 &&
         fragment(b(name + ":"), " ", c2s(c, lang), " ", !oldC ? "" : compare(c, oldC, lang, false, icons));
 };
+/**
+ * Creates a link to a file in GitHub
+ *
+ * @param folder - Folder path
+ * @param file - File name
+ * @returns HTML anchor element
+ */
 var link = function (folder, file) {
     return a("".concat(baseUrl, "/").concat(folder, "/").concat(file), file);
 };
+/**
+ * Generates HTML coverage report
+ *
+ * @param c - Current coverage statistics
+ * @param o - Previous coverage statistics for comparison
+ * @param configs - Configuration options
+ * @param configs.withTable - Whether to include a detailed table
+ * @param configs.deltaPerFile - Whether to show coverage changes per file
+ * @param configs.showBranchesColumn - Whether to include the branches column
+ * @param configs.icons - Icons for different coverage states
+ * @returns HTML coverage report
+ */
 var html = function (c, o, configs) {
     if (o === void 0) { o = null; }
+    // Use tableWrap if withTable is true, otherwise just use span
     return (configs.withTable
         ? tableWrap(c, configs.icons, o, configs.deltaPerFile, configs.showBranchesColumn)
-        : span)("Summary - ".concat([
+        : span)(
+    // Create summary text with coverage metrics
+    "Summary - ".concat([
         total("Lines", configs.icons, c.total.lines, o === null || o === void 0 ? void 0 : o.total.lines),
         total("Methods", configs.icons, c.total.methods, o === null || o === void 0 ? void 0 : o.total.methods),
         configs.showBranchesColumn &&
@@ -38269,18 +38549,44 @@ var html = function (c, o, configs) {
         .filter(function (v) { return v; })
         .join(" | ")));
 };
+/**
+ * Creates a detailed table of coverage metrics wrapped in a collapsible details element
+ *
+ * @param c - Current coverage statistics
+ * @param icons - Icons for different coverage states
+ * @param o - Previous coverage statistics for comparison
+ * @param showDelta - Whether to show coverage change indicators
+ * @param showBranchesColumn - Whether to include the branches column
+ * @returns Function that takes a summary text and returns an HTML details element
+ */
 var tableWrap = function (c, icons, o, showDelta, showBranchesColumn) {
     if (o === void 0) { o = null; }
     if (showDelta === void 0) { showDelta = false; }
     if (showBranchesColumn === void 0) { showBranchesColumn = true; }
+    /**
+     * @param summaryText - Text to display in the summary element
+     * @returns HTML details element with coverage table
+     */
     return function (summaryText) {
-        return details(summary(summaryText), "<br />", table(thead(tr(th("Files"), th("Lines"), th("Methods"), showBranchesColumn && th("Branches"))), tbody(c.folders.size === 0
+        return details(
+        // Collapsible summary
+        summary(summaryText), "<br />", 
+        // Coverage table
+        table(
+        // Table header
+        thead(tr(th("Files"), th("Lines"), th("Methods"), showBranchesColumn && th("Branches"))), 
+        // Table body
+        tbody(
+        // Show message if no files
+        c.folders.size === 0
             ? tr(td("No files reported or matching filters", { colspan: 4 }))
-            : limitedFragment.apply(void 0, __spreadArray([65536 - 4000,
+            : // Limit table size to fit in GitHub comment
+             limitedFragment.apply(void 0, __spreadArray([65536 - 4000,
                 tr(td(b("Table truncated to fit comment"), { colspan: 4 }))], Array.from(c.folders.entries())
                 .map(function (_a) {
                 var k = _a[0], folder = _a[1];
                 return __spreadArray([
+                    // Folder row
                     tr(td(b(folder.name), { colspan: 4 }))
                 ], folder.files.map(function (f) {
                     var _a;
@@ -38291,33 +38597,61 @@ var tableWrap = function (c, icons, o, showDelta, showBranchesColumn) {
     };
 };
 
+/**
+ * Main entry point for the comment-coverage-clover GitHub Action.
+ * This module processes Clover XML coverage reports and posts them as comments on GitHub pull requests.
+ * It supports comparing current coverage with a base coverage file and can enforce coverage thresholds.
+ */
 sourceMapSupportExports.install();
+/**
+ * Configuration variables from GitHub Action inputs or environment variables
+ */
+// Path configuration
 var workspace = coreExports.getInput("dir-prefix") || process.env.GITHUB_WORKSPACE;
 var token = coreExports.getInput("github-token") || process.env.GITHUB_TOKEN;
 var file = coreExports.getInput("file") || process.env.FILE;
 var baseFile = coreExports.getInput("base-file") || process.env.BASE_FILE;
+// Filter options
 var onlyWithCover = coreExports.getBooleanInput("only-with-cover");
 var onlyWithCoverableLines = coreExports.getBooleanInput("only-with-coverable-lines");
+// Display options
 var withChart = coreExports.getBooleanInput("with-chart");
 var skipCommentOnForks = coreExports.getBooleanInput("skip-comments-on-forks");
 var withTable = coreExports.getBooleanInput("with-table");
 var showBranchesColumn = coreExports.getBooleanInput("with-branches");
+// Table filtering options
 var tableWithOnlyBellow = Number(coreExports.getInput("table-below-coverage") || 100);
 var tableWithOnlyAbove = Number(coreExports.getInput("table-above-coverage") || 0);
 var tableWithChangeAbove = Number(coreExports.getInput("table-coverage-change") || 0);
 var tableWithTypeLimit = coreExports.getInput("table-type-coverage") || "lines";
+// Comment signature
 var signature = "<sub data-file=".concat(JSON.stringify(file), ">").concat(coreExports.getInput("signature") ||
     ':robot: comment via <a href="https://github.com/kloostermanw/comment-coverage-clover">kloostermanw/comment-coverage-clover</a>', "</sub>");
+// GitHub API client
 var github = token && githubExports.getOctokit(token);
+// Coverage thresholds
 var maxLineCoverageDecrease = coreExports.getInput("max-line-coverage-decrease");
 var maxMethodCoverageDecrease = coreExports.getInput("max-method-coverage-decrease");
 var minLineCoverage = Number(coreExports.getInput("min-line-coverage"));
 var minMethodCoverage = Number(coreExports.getInput("min-method-coverage"));
+// Additional display options
 var showPercentageChangePerFile = coreExports.getBooleanInput("show-percentage-change-on-table");
+// Icons for coverage change indicators
 var iconEquals = coreExports.getInput("icon-equals") || ":stop_button:";
 var iconIncreased = coreExports.getInput("icon-increased") || ":arrow_up_small:";
 var iconDecreased = coreExports.getInput("icon-decreased") || ":arrow_down_small:";
 var iconNew = coreExports.getInput("icon-new") || ":new:";
+var pullRequestFiles = coreExports.getInput("pull-request-files").split(',');
+/**
+ * Generates the comment content with coverage information
+ *
+ * @param cStats - Current coverage statistics
+ * @param oldStats - Previous coverage statistics for comparison (if available)
+ * @param coverageType - Type of coverage to display (lines, methods, branches)
+ * @param withChart - Whether to include a coverage distribution chart
+ * @param withTable - Whether to include a detailed coverage table
+ * @returns A string with the formatted comment content
+ */
 var comment = function (cStats, oldStats, coverageType, withChart, withTable) { return __awaiter(void 0, void 0, void 0, function () {
     var w;
     return __generator(this, function (_a) {
@@ -38336,7 +38670,7 @@ var comment = function (cStats, oldStats, coverageType, withChart, withTable) { 
                     min: tableWithOnlyAbove,
                     max: tableWithOnlyBellow,
                     delta: tableWithChangeAbove,
-                }, oldStats), oldStats, {
+                }, oldStats, pullRequestFiles), oldStats, {
                     withTable: withTable,
                     deltaPerFile: showPercentageChangePerFile,
                     showBranchesColumn: showBranchesColumn,
@@ -38349,18 +38683,41 @@ var comment = function (cStats, oldStats, coverageType, withChart, withTable) { 
                 }))];
     });
 }); };
-var filter = function (s, onlyWith, onlyBetween, o) {
+/**
+ * Filters coverage statistics based on specified criteria
+ *
+ * @param s - The coverage statistics to filter
+ * @param onlyWith - Options to filter files based on coverage presence
+ * @param onlyWith.cover - Only include files with some coverage
+ * @param onlyWith.coverableLines - Only include files with coverable lines
+ * @param onlyBetween - Options to filter files based on coverage percentages
+ * @param onlyBetween.type - The type of coverage metric to filter by
+ * @param onlyBetween.min - Minimum coverage percentage to include
+ * @param onlyBetween.max - Maximum coverage percentage to include
+ * @param onlyBetween.delta - Minimum coverage change to include
+ * @param o - Previous coverage statistics for comparison
+ * @param pullRequestFiles
+ * @returns Filtered coverage statistics
+ */
+var filter = function (s, onlyWith, onlyBetween, o, pullRequestFiles) {
     if (o === void 0) { o = null; }
     var filters = [];
+    // Filter files with no coverage
     if (onlyWith.cover)
         filters.push(function (f) { return f.metrics.lines.covered !== 0; });
+    // Filter files with no coverable lines
     if (onlyWith.coverableLines)
         filters.push(function (f) { return f.metrics.lines.total !== 0; });
+    if (pullRequestFiles.length > 0) {
+        filters.push(function (f) { return pullRequestFiles.includes(f.name); });
+    }
     {
+        // Filter files outside the specified coverage percentage range
         if (onlyBetween.min > 0 || onlyBetween.max < 100)
             filters.push(function (f) {
                 return between(f.metrics[onlyBetween.type].percentual * 100, onlyBetween.min, onlyBetween.max);
             });
+        // Filter files with coverage change less than the specified delta
         if (onlyBetween.delta > 0 && o !== null)
             filters.push(function (f, folder) {
                 var of = o.get(folder, f.name);
@@ -38371,22 +38728,41 @@ var filter = function (s, onlyWith, onlyBetween, o) {
                         onlyBetween.delta);
             });
     }
+    // If no filters are applied, return the original stats
     if (filters.length === 0) {
         return s;
     }
+    // Apply all filters to each folder and file
     s.folders.forEach(function (folder, key) {
         folder.files = folder.files.filter(function (f) {
             return filters.reduce(function (r, fn) { return r && fn(f, key); }, true);
         });
+        // Remove empty folders
         if (folder.files.length === 0) {
             s.folders.delete(key);
         }
     });
     return s;
 };
+/**
+ * Checks if a value is between the specified minimum and maximum values
+ *
+ * @param v - The value to check
+ * @param min - The minimum value (inclusive)
+ * @param max - The maximum value (inclusive)
+ * @returns True if the value is between min and max, false otherwise
+ */
 var between = function (v, min, max) {
     return min <= (v || 0) && (v || 0) <= max;
 };
+/**
+ * Checks if coverage meets the specified thresholds
+ * Yields error messages for any thresholds that are not met
+ *
+ * @param c - Current coverage statistics
+ * @param o - Previous coverage statistics for comparison (optional)
+ * @yields Error messages for any thresholds that are not met
+ */
 function checkThreshold(c, o) {
     var f, lcdiff, mcdiff;
     return __generator(this, function (_a) {
@@ -38405,6 +38781,7 @@ function checkThreshold(c, o) {
                 _a.sent();
                 _a.label = 4;
             case 4:
+                // Skip comparison checks if no previous coverage data
                 if (o === undefined)
                     return [2 /*return*/];
                 lcdiff = (o.total.lines.percentual - c.total.lines.percentual) * 100;
@@ -38425,7 +38802,19 @@ function checkThreshold(c, o) {
         }
     });
 }
+/**
+ * Formats OAuth scopes for display
+ *
+ * @param scopes - OAuth scopes string
+ * @returns Formatted scopes string
+ */
 var scopesToString = function (scopes) { var _a; return ((_a = scopes === null || scopes === void 0 ? void 0 : scopes.split(/,\s+/)) === null || _a === void 0 ? void 0 : _a.join(", ")) || "(empty)"; };
+/**
+ * Converts an error to a detailed string representation
+ *
+ * @param e - The error to convert
+ * @returns String representation of the error with additional details
+ */
 var errorToString = function (e) {
     var _a, _b, _c;
     return e +
@@ -38437,17 +38826,32 @@ var errorToString = function (e) {
                 : "") + "\nStack: ".concat(e.stack)
             : "");
 };
+/**
+ * Error message for files that cannot be found
+ */
 var notFoundMessage = "was not found, please check if the path is valid, or if it exists.";
+/**
+ * Main function that runs the GitHub Action
+ *
+ * This function:
+ * 1. Validates inputs and context
+ * 2. Reads and parses coverage files
+ * 3. Checks coverage thresholds
+ * 4. Generates coverage reports
+ * 5. Posts or updates comments on pull requests
+ */
 var run = function () { return __awaiter(void 0, void 0, void 0, function () {
     var commit, cStats, _a, oldStats, _b, _c, msgs, body, _d, _e, _f, _g, isFork, filter, u_1, e_1, commentId, comments, i, c, e_2, e_3;
     var _h, _j, _k, _l, _m, _o;
     return __generator(this, function (_p) {
         switch (_p.label) {
             case 0:
+                // Validate coverage type
                 if (!["lines", "methods", "branches"].includes(tableWithTypeLimit)) {
                     coreExports.error("there is no coverage type ".concat(tableWithTypeLimit));
                     return [2 /*return*/];
                 }
+                // Validate GitHub context
                 if (!utilsExports.context.payload.pull_request)
                     throw ("this action requires a pull request context to be able to comment\n" +
                         "https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request");
@@ -38456,6 +38860,7 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                         ? "no Github token was informed !"
                         : "the Github token informed is not valid";
                 commit = (_h = utilsExports.context.payload.pull_request) === null || _h === void 0 ? void 0 : _h.head.sha.substring(0, 7);
+                // Check if coverage file exists
                 if (!require$$1$1.existsSync(file)) {
                     throw "file \"".concat(file, "\" ").concat(notFoundMessage);
                 }
@@ -38463,6 +38868,7 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                 return [4 /*yield*/, require$$1$2.promisify(require$$1$1.readFile)(file)];
             case 1:
                 cStats = _a.apply(void 0, [(_p.sent()).toString()]);
+                // Check if base coverage file exists
                 if (baseFile && !require$$1$1.existsSync(baseFile)) {
                     coreExports.error("base file \"".concat(baseFile, "\" ").concat(notFoundMessage));
                     baseFile = undefined;
@@ -38477,17 +38883,20 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
             case 3:
                 oldStats = _b;
                 msgs = Array.from(checkThreshold(cStats, oldStats));
+                // Mark action as failed if any thresholds are not met
                 msgs.map(coreExports.setFailed);
                 _e = (_d = "\nCoverage report for commit: ".concat(commit, "\nFile: `").concat(file, "`\n\n").concat(msgs.map(function (m) { return "> :warning: ".concat(m); }).join("\n"), "\n\n")).concat;
                 return [4 /*yield*/, comment(cStats, oldStats, tableWithTypeLimit, withChart, withTable)];
             case 4:
                 body = _e.apply(_d, [_p.sent(), "\n\n"]).concat(signature);
+                // Generate GitHub Actions summary
                 return [4 /*yield*/, coreExports.summary
                         .addHeading("Coverage Report")
                         .addRaw("File: <code>".concat(file, "</code>"), true)
                         .addBreak()
                         .write()];
             case 5:
+                // Generate GitHub Actions summary
                 _p.sent();
                 if (!msgs.length) return [3 /*break*/, 7];
                 return [4 /*yield*/, coreExports.summary
@@ -38506,11 +38915,13 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                     .write()];
             case 9:
                 _p.sent();
+                // Exit if not in a pull request context
                 if (utilsExports.context.eventName !== "pull_request") {
                     return [2 /*return*/];
                 }
                 isFork = "".concat(utilsExports.context.repo.owner, "/").concat(utilsExports.context.repo.repo) !==
                     ((_l = (_k = (_j = utilsExports.context.payload.pull_request) === null || _j === void 0 ? void 0 : _j.head) === null || _k === void 0 ? void 0 : _k.repo) === null || _l === void 0 ? void 0 : _l.full_name);
+                // Skip commenting on forks if configured
                 if (skipCommentOnForks && isFork) {
                     return [2 /*return*/];
                 }
@@ -38563,7 +38974,9 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                 e_3 = _p.sent();
                 coreExports.debug(errorToString(e_3));
                 return [3 /*break*/, 21];
-            case 21: return [4 /*yield*/, github.rest.issues
+            case 21: 
+            // Create new comment if no existing comment was found or update failed
+            return [4 /*yield*/, github.rest.issues
                     .createComment(__assign(__assign({}, utilsExports.context.repo), { issue_number: utilsExports.context.issue.number, body: body }))
                     .catch(function (e) {
                     if (isFork) {
@@ -38575,6 +38988,7 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                         (e.stack ? ". Stack: " + e.stack : ""));
                 })];
             case 22:
+                // Create new comment if no existing comment was found or update failed
                 _p.sent();
                 return [2 /*return*/];
         }

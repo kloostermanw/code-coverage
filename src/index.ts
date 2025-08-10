@@ -79,6 +79,8 @@ const iconIncreased = getInput("icon-increased") || ":arrow_up_small:";
 const iconDecreased = getInput("icon-decreased") || ":arrow_down_small:";
 const iconNew = getInput("icon-new") || ":new:";
 
+const pullRequestFiles = getInput("pull-request-files").split(',');
+
 /**
  * Generates the comment content with coverage information
  * 
@@ -122,7 +124,8 @@ const comment = async (
           max: tableWithOnlyBellow,
           delta: tableWithChangeAbove,
         },
-        oldStats
+        oldStats,
+        pullRequestFiles
       ),
       oldStats,
       {
@@ -142,7 +145,7 @@ const comment = async (
 
 /**
  * Filters coverage statistics based on specified criteria
- * 
+ *
  * @param s - The coverage statistics to filter
  * @param onlyWith - Options to filter files based on coverage presence
  * @param onlyWith.cover - Only include files with some coverage
@@ -153,6 +156,7 @@ const comment = async (
  * @param onlyBetween.max - Maximum coverage percentage to include
  * @param onlyBetween.delta - Minimum coverage change to include
  * @param o - Previous coverage statistics for comparison
+ * @param pullRequestFiles
  * @returns Filtered coverage statistics
  */
 const filter = (
@@ -167,7 +171,8 @@ const filter = (
     max: number;
     delta: number;
   },
-  o: Stats = null
+  o: Stats = null,
+  pullRequestFiles: Array<string>
 ): Stats => {
   const filters: ((f: File, folder: string) => boolean)[] = [];
 
@@ -176,6 +181,10 @@ const filter = (
 
   // Filter files with no coverable lines
   if (onlyWith.coverableLines) filters.push((f) => f.metrics.lines.total !== 0);
+
+  if (pullRequestFiles.length > 0) {
+    filters.push((f) => pullRequestFiles.includes(f.name));
+  }
 
   if (onlyBetween.type) {
     // Filter files outside the specified coverage percentage range
