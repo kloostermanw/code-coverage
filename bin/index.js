@@ -38232,38 +38232,119 @@ var asList = function (arg) {
  * @returns Stats object representing the coverage data
  */
 var fromString = function (str) {
-    // Parse the XML to JSON
-    var _a = JSON.parse(libExports.xml2json(str, { compact: true })).coverage.project, m = _a.metrics._attributes, files = _a.file, packages = _a.package;
-    // Combine files from packages and project root
-    var allFiles = asList(packages).reduce(function (acc, p) { return __spreadArray(__spreadArray([], acc, true), asList(p.file), true); }, asList(files));
-    // Create Stats object from parsed data
-    return new Stats({
-        // Create total metrics
-        lines: new Coverage(m.statements, m.coveredstatements),
-        methods: new Coverage(m.methods, m.coveredmethods),
-        branches: new Coverage(m.conditionals, m.coveredconditionals),
-    }, allFiles
-        // Normalize file names
-        .map(function (f) {
-        f._attributes.name = f._attributes.path || f._attributes.name;
-        return f;
-    })
-        // Sort files by name
-        .sort(function (a, b) { return (a._attributes.name < b._attributes.name ? -1 : 1); })
-        // Extract folder from file path
-        .map(function (f) { return (__assign(__assign({}, f), { folder: f._attributes.name.split("/").slice(0, -1).join("/") })); })
-        // Group files by folder
-        .reduce(function (files, _a) {
-        var folder = _a.folder, name = _a._attributes.name, m = _a.metrics._attributes;
-        return files.set(folder, (files.get(folder) || new Folder(folder)).push({
-            name: name.split("/").pop(),
-            metrics: {
-                lines: new Coverage(m.statements, m.coveredstatements),
-                methods: new Coverage(m.methods, m.coveredmethods),
-                branches: new Coverage(m.conditionals, m.coveredconditionals),
-            },
-        }));
-    }, new Map()));
+    // Parse the XML to JSON and extract project data
+    var cloverData = parseCloverXML(str);
+    // Combine all files from packages and project root
+    var allFiles = getAllFiles(cloverData);
+    // Create total coverage metrics
+    var totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
+    // Process files and group by folders
+    var foldersMap = processFilesIntoFolders(allFiles);
+    return new Stats(totalMetrics, foldersMap);
+};
+/**
+ * Parses the Clover XML string and extracts the project data
+ */
+var parseCloverXML = function (str) {
+    var parsed = JSON.parse(libExports.xml2json(str, { compact: true }));
+    return parsed.coverage.project;
+};
+/**
+ * Combines files from packages and project root into a single array
+ */
+var getAllFiles = function (projectData) {
+    var filesFromRoot = asList(projectData.file);
+    var filesFromPackages = asList(projectData.package).reduce(function (acc, pkg) { return __spreadArray(__spreadArray([], acc, true), asList(pkg.file), true); }, []);
+    return __spreadArray(__spreadArray([], filesFromRoot, true), filesFromPackages, true);
+};
+/**
+ * Creates total coverage metrics from Clover XML attributes
+ */
+var createTotalMetrics = function (attributes) {
+    return {
+        lines: new Coverage(attributes.statements, attributes.coveredstatements),
+        methods: new Coverage(attributes.methods, attributes.coveredmethods),
+        branches: new Coverage(attributes.conditionals, attributes.coveredconditionals),
+    };
+};
+/**
+ * Processes all files and groups them into folders
+ */
+var processFilesIntoFolders = function (files) {
+    // First, normalize and sort files
+    var normalizedFiles = normalizeFileNames(files);
+    var sortedFiles = sortFilesByName(normalizedFiles);
+    var filesWithFolders = extractFolderPaths(sortedFiles);
+    // Then group by folder
+    return groupFilesByFolder(filesWithFolders);
+};
+/**
+ * Normalizes file names by using path if available
+ */
+var normalizeFileNames = function (files) {
+    return files.map(function (file) {
+        file._attributes.name = file._attributes.path || file._attributes.name;
+        return file;
+    });
+};
+/**
+ * Sorts files alphabetically by name
+ */
+var sortFilesByName = function (files) {
+    return files.sort(function (a, b) {
+        return a._attributes.name < b._attributes.name ? -1 : 1;
+    });
+};
+/**
+ * Extracts folder paths from file names
+ */
+var extractFolderPaths = function (files) {
+    return files.map(function (file) { return (__assign(__assign({}, file), { folder: extractFolderFromPath(file._attributes.name) })); });
+};
+/**
+ * Extracts folder path from a file path
+ */
+var extractFolderFromPath = function (filePath) {
+    return filePath.split("/").slice(0, -1).join("/");
+};
+/**
+ * Groups files by their folder paths
+ */
+var groupFilesByFolder = function (filesWithFolders) {
+    var foldersMap = new Map();
+    for (var _i = 0, filesWithFolders_1 = filesWithFolders; _i < filesWithFolders_1.length; _i++) {
+        var fileData = filesWithFolders_1[_i];
+        var folder = fileData.folder, name_1 = fileData._attributes.name, m = fileData.metrics._attributes;
+        // Get or create folder
+        if (!foldersMap.has(folder)) {
+            foldersMap.set(folder, new Folder(folder));
+        }
+        var folderObj = foldersMap.get(folder);
+        // Create file metrics and add to folder
+        var fileMetrics = createFileMetrics(m);
+        var fileName = extractFileNameFromPath(name_1);
+        folderObj.push({
+            name: fileName,
+            metrics: fileMetrics,
+        });
+    }
+    return foldersMap;
+};
+/**
+ * Creates file metrics from Clover XML attributes
+ */
+var createFileMetrics = function (attributes) {
+    return {
+        lines: new Coverage(attributes.statements, attributes.coveredstatements),
+        methods: new Coverage(attributes.methods, attributes.coveredmethods),
+        branches: new Coverage(attributes.conditionals, attributes.coveredconditionals),
+    };
+};
+/**
+ * Extracts just the file name from a full path
+ */
+var extractFileNameFromPath = function (filePath) {
+    return filePath.split("/").pop() || filePath;
 };
 
 /**

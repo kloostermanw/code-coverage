@@ -78,62 +78,145 @@ const asList = <T>(arg: undefined | T | T[]): T[] =>
  * @returns Stats object representing the coverage data
  */
 export const fromString = (str: string): Stats => {
-  // Parse the XML to JSON
-  const {
-    coverage: {
-      project: {
-        metrics: { _attributes: m },
-        file: files,
-        package: packages,
-      },
-    },
-  } = JSON.parse(xml2json(str, { compact: true })) as CloverXML;
+  // Parse the XML to JSON and extract project data
+  const cloverData = parseCloverXML(str);
+  
+  // Combine all files from packages and project root
+  const allFiles = getAllFiles(cloverData);
+  
+  // Create total coverage metrics
+  const totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
+  
+  // Process files and group by folders
+  const foldersMap = processFilesIntoFolders(allFiles);
+  
+  return new Stats(totalMetrics, foldersMap);
+};
 
-  // Combine files from packages and project root
-  const allFiles = asList(packages).reduce(
-    (acc, p) => [...acc, ...asList(p.file)],
-    asList(files)
-  );
+/**
+ * Parses the Clover XML string and extracts the project data
+ */
+const parseCloverXML = (str: string) => {
+  const parsed = JSON.parse(xml2json(str, { compact: true })) as CloverXML;
+  return parsed.coverage.project;
+};
 
-  // Create Stats object from parsed data
-  return new Stats(
-    {
-      // Create total metrics
-      lines: new Coverage(m.statements, m.coveredstatements),
-      methods: new Coverage(m.methods, m.coveredmethods),
-      branches: new Coverage(m.conditionals, m.coveredconditionals),
-    },
-    allFiles
-      // Normalize file names
-      .map((f) => {
-        f._attributes.name = f._attributes.path || f._attributes.name;
-        return f;
-      })
-      // Sort files by name
-      .sort((a, b) => (a._attributes.name < b._attributes.name ? -1 : 1))
-      // Extract folder from file path
-      .map((f) => ({
-        ...f,
-        folder: f._attributes.name.split("/").slice(0, -1).join("/"),
-      }))
-      // Group files by folder
-      .reduce(
-        (
-          files,
-          { folder, _attributes: { name }, metrics: { _attributes: m } }
-        ) =>
-          files.set(
-            folder,
-            (files.get(folder) || new Folder(folder)).push({
-              name: name.split("/").pop(),
-              metrics: {
-                lines: new Coverage(m.statements, m.coveredstatements),
-                methods: new Coverage(m.methods, m.coveredmethods),
-                branches: new Coverage(m.conditionals, m.coveredconditionals),
-              },
-            })
-          ),
-        new Map<string, Folder>()
-      )
+/**
+ * Combines files from packages and project root into a single array
+ */
+const getAllFiles = (projectData: any): CloverFileXML[] => {
+  const filesFromRoot = asList(projectData.file);
+  const filesFromPackages = asList(projectData.package).reduce(
+    (acc, pkg) => [...acc, ...asList(pkg.file)],
+    [] as CloverFileXML[]
   );
+  
+  return [...filesFromRoot, ...filesFromPackages];
+};
+
+/**
+ * Creates total coverage metrics from Clover XML attributes
+ */
+const createTotalMetrics = (attributes: any) => {
+  return {
+    lines: new Coverage(attributes.statements, attributes.coveredstatements),
+    methods: new Coverage(attributes.methods, attributes.coveredmethods),
+    branches: new Coverage(attributes.conditionals, attributes.coveredconditionals),
+  };
+};
+
+/**
+ * Processes all files and groups them into folders
+ */
+const processFilesIntoFolders = (files: CloverFileXML[]): Map<string, Folder> => {
+  // First, normalize and sort files
+  const normalizedFiles = normalizeFileNames(files);
+  const sortedFiles = sortFilesByName(normalizedFiles);
+  const filesWithFolders = extractFolderPaths(sortedFiles);
+  
+  // Then group by folder
+  return groupFilesByFolder(filesWithFolders);
+};
+
+/**
+ * Normalizes file names by using path if available
+ */
+const normalizeFileNames = (files: CloverFileXML[]): CloverFileXML[] => {
+  return files.map((file) => {
+    file._attributes.name = file._attributes.path || file._attributes.name;
+    return file;
+  });
+};
+
+/**
+ * Sorts files alphabetically by name
+ */
+const sortFilesByName = (files: CloverFileXML[]): CloverFileXML[] => {
+  return files.sort((a, b) => 
+    a._attributes.name < b._attributes.name ? -1 : 1
+  );
+};
+
+/**
+ * Extracts folder paths from file names
+ */
+const extractFolderPaths = (files: CloverFileXML[]) => {
+  return files.map((file) => ({
+    ...file,
+    folder: extractFolderFromPath(file._attributes.name),
+  }));
+};
+
+/**
+ * Extracts folder path from a file path
+ */
+const extractFolderFromPath = (filePath: string): string => {
+  return filePath.split("/").slice(0, -1).join("/");
+};
+
+/**
+ * Groups files by their folder paths
+ */
+const groupFilesByFolder = (filesWithFolders: any[]): Map<string, Folder> => {
+  const foldersMap = new Map<string, Folder>();
+  
+  for (const fileData of filesWithFolders) {
+    const { folder, _attributes: { name }, metrics: { _attributes: m } } = fileData;
+    
+    // Get or create folder
+    if (!foldersMap.has(folder)) {
+      foldersMap.set(folder, new Folder(folder));
+    }
+    
+    const folderObj = foldersMap.get(folder)!;
+    
+    // Create file metrics and add to folder
+    const fileMetrics = createFileMetrics(m);
+    const fileName = extractFileNameFromPath(name);
+    
+    folderObj.push({
+      name: fileName,
+      metrics: fileMetrics,
+    });
+  }
+  
+  return foldersMap;
+};
+
+/**
+ * Creates file metrics from Clover XML attributes
+ */
+const createFileMetrics = (attributes: any) => {
+  return {
+    lines: new Coverage(attributes.statements, attributes.coveredstatements),
+    methods: new Coverage(attributes.methods, attributes.coveredmethods),
+    branches: new Coverage(attributes.conditionals, attributes.coveredconditionals),
+  };
+};
+
+/**
+ * Extracts just the file name from a full path
+ */
+const extractFileNameFromPath = (filePath: string): string => {
+  return filePath.split("/").pop() || filePath;
 };
