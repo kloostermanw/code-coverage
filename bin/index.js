@@ -38229,13 +38229,24 @@ var asList = function (arg) {
  * Parses a Clover XML string and converts it to Stats
  *
  * @param str - Clover XML string
+ * @param pullRequestFiles - Optional array of files to include in the coverage data
  * @returns Stats object representing the coverage data
  */
-var fromString = function (str) {
+var fromString = function (str, pullRequestFiles) {
+    if (pullRequestFiles === void 0) { pullRequestFiles = []; }
     // Parse the XML to JSON and extract project data
     var cloverData = parseCloverXML(str);
     // Combine all files from packages and project root
     var allFiles = getAllFiles(cloverData);
+    console.log("allFiles: ", allFiles);
+    if (pullRequestFiles.length > 0) {
+        //*** Filter files by pull request files ***/
+        var filteredFiles = allFiles.filter(function (file) {
+            var fileName = file._attributes.name;
+            return pullRequestFiles.some(function (f) { return f.includes(fileName); });
+        });
+        allFiles = filteredFiles;
+    }
     console.log("allFiles: ", allFiles);
     // Create total coverage metrics
     var totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
@@ -38723,7 +38734,7 @@ var iconEquals = coreExports.getInput("icon-equals") || ":stop_button:";
 var iconIncreased = coreExports.getInput("icon-increased") || ":arrow_up_small:";
 var iconDecreased = coreExports.getInput("icon-decreased") || ":arrow_down_small:";
 var iconNew = coreExports.getInput("icon-new") || ":new:";
-coreExports.getInput("pull-request-files").split(',');
+var pullRequestFiles = coreExports.getInput("pull-request-files").split(',');
 /**
  * Generates the comment content with coverage information
  *
@@ -38921,10 +38932,10 @@ var notFoundMessage = "was not found, please check if the path is valid, or if i
  * 5. Posts or updates comments on pull requests
  */
 var run = function () { return __awaiter(void 0, void 0, void 0, function () {
-    var commit, cStats, _a, oldStats, _b, _c, msgs, body, _d, _e, _f, _g, isFork, filter, u_1, e_1, commentId, comments, i, c, e_2, e_3;
-    var _h, _j, _k, _l, _m, _o;
-    return __generator(this, function (_p) {
-        switch (_p.label) {
+    var commit, cStats, _a, prStats, _b, _c, oldStats, _d, _e, msgs, body, _f, _g, _h, _j, isFork, filter, u_1, e_1, commentId, comments, i, c, e_2, e_3;
+    var _k, _l, _m, _o, _p, _q;
+    return __generator(this, function (_r) {
+        switch (_r.label) {
             case 0:
                 // Validate coverage type
                 if (!["lines", "methods", "branches"].includes(tableWithTypeLimit)) {
@@ -38939,7 +38950,7 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                     throw token
                         ? "no Github token was informed !"
                         : "the Github token informed is not valid";
-                commit = (_h = utilsExports.context.payload.pull_request) === null || _h === void 0 ? void 0 : _h.head.sha.substring(0, 7);
+                commit = (_k = utilsExports.context.payload.pull_request) === null || _k === void 0 ? void 0 : _k.head.sha.substring(0, 7);
                 // Check if coverage file exists
                 if (!require$$1$1.existsSync(file)) {
                     throw "file \"".concat(file, "\" ").concat(notFoundMessage);
@@ -38947,115 +38958,125 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                 _a = fromString;
                 return [4 /*yield*/, require$$1$2.promisify(require$$1$1.readFile)(file)];
             case 1:
-                cStats = _a.apply(void 0, [(_p.sent()).toString()]);
+                cStats = _a.apply(void 0, [(_r.sent()).toString()]);
                 console.log('cStats: ', cStats);
+                _b = (pullRequestFiles.length > 0);
+                if (!_b) return [3 /*break*/, 3];
+                _c = fromString;
+                return [4 /*yield*/, require$$1$2.promisify(require$$1$1.readFile)(file)];
+            case 2:
+                _b = _c.apply(void 0, [(_r.sent()).toString(), pullRequestFiles]);
+                _r.label = 3;
+            case 3:
+                prStats = _b;
+                console.log('prStats: ', prStats);
                 // Check if base coverage file exists
                 if (baseFile && !require$$1$1.existsSync(baseFile)) {
                     coreExports.error("base file \"".concat(baseFile, "\" ").concat(notFoundMessage));
                     baseFile = undefined;
                 }
-                _b = baseFile;
-                if (!_b) return [3 /*break*/, 3];
-                _c = fromString;
+                _d = baseFile;
+                if (!_d) return [3 /*break*/, 5];
+                _e = fromString;
                 return [4 /*yield*/, require$$1$2.promisify(require$$1$1.readFile)(baseFile)];
-            case 2:
-                _b = _c.apply(void 0, [(_p.sent()).toString()]);
-                _p.label = 3;
-            case 3:
-                oldStats = _b;
+            case 4:
+                _d = _e.apply(void 0, [(_r.sent()).toString()]);
+                _r.label = 5;
+            case 5:
+                oldStats = _d;
                 msgs = Array.from(checkThreshold(cStats, oldStats));
                 // Mark action as failed if any thresholds are not met
                 msgs.map(coreExports.setFailed);
-                _e = (_d = "\nCoverage report for commit: ".concat(commit, "\nFile: `").concat(file, "`\n\n").concat(msgs.map(function (m) { return "> :warning: ".concat(m); }).join("\n"), "\n\n")).concat;
+                _g = (_f = "\nCoverage report for commit: ".concat(commit, "\nFile: `").concat(file, "`\n\n").concat(msgs.map(function (m) { return "> :warning: ".concat(m); }).join("\n"), "\n\n")).concat;
                 return [4 /*yield*/, comment(cStats, oldStats, tableWithTypeLimit, withChart, withTable)];
-            case 4:
-                body = _e.apply(_d, [_p.sent(), "\n\n"]).concat(signature);
+            case 6:
+                body = _g.apply(_f, [_r.sent(), "\n\n"]).concat(signature);
                 // Generate GitHub Actions summary
                 return [4 /*yield*/, coreExports.summary
                         .addHeading("Coverage Report")
                         .addRaw("File: <code>".concat(file, "</code>"), true)
                         .addBreak()
                         .write()];
-            case 5:
+            case 7:
                 // Generate GitHub Actions summary
-                _p.sent();
-                if (!msgs.length) return [3 /*break*/, 7];
+                _r.sent();
+                if (!msgs.length) return [3 /*break*/, 9];
                 return [4 /*yield*/, coreExports.summary
                         .addBreak()
                         .addQuote(msgs.map(function (m) { return ":warning: ".concat(m); }).join("\n"))
                         .write()];
-            case 6:
-                _p.sent();
-                _p.label = 7;
-            case 7:
-                _g = (_f = coreExports.summary
+            case 8:
+                _r.sent();
+                _r.label = 9;
+            case 9:
+                _j = (_h = coreExports.summary
                     .addBreak())
                     .addRaw;
                 return [4 /*yield*/, comment(cStats, oldStats, tableWithTypeLimit, true, false)];
-            case 8: return [4 /*yield*/, _g.apply(_f, [_p.sent(), true])
+            case 10: return [4 /*yield*/, _j.apply(_h, [_r.sent(), true])
                     .write()];
-            case 9:
-                _p.sent();
+            case 11:
+                _r.sent();
                 // Exit if not in a pull request context
                 if (utilsExports.context.eventName !== "pull_request") {
                     return [2 /*return*/];
                 }
                 isFork = "".concat(utilsExports.context.repo.owner, "/").concat(utilsExports.context.repo.repo) !==
-                    ((_l = (_k = (_j = utilsExports.context.payload.pull_request) === null || _j === void 0 ? void 0 : _j.head) === null || _k === void 0 ? void 0 : _k.repo) === null || _l === void 0 ? void 0 : _l.full_name);
+                    ((_o = (_m = (_l = utilsExports.context.payload.pull_request) === null || _l === void 0 ? void 0 : _l.head) === null || _m === void 0 ? void 0 : _m.repo) === null || _o === void 0 ? void 0 : _o.full_name);
                 // Skip commenting on forks if configured
                 if (skipCommentOnForks && isFork) {
                     return [2 /*return*/];
                 }
                 filter = function (c) { var _a; return ((_a = c === null || c === void 0 ? void 0 : c.user) === null || _a === void 0 ? void 0 : _a.type) === "Bot"; };
-                _p.label = 10;
-            case 10:
-                _p.trys.push([10, 12, , 13]);
+                _r.label = 12;
+            case 12:
+                _r.trys.push([12, 14, , 15]);
                 return [4 /*yield*/, github.rest.users.getAuthenticated()];
-            case 11:
-                u_1 = _p.sent();
+            case 13:
+                u_1 = _r.sent();
                 filter = function (c) { var _a; return ((_a = c === null || c === void 0 ? void 0 : c.user) === null || _a === void 0 ? void 0 : _a.login) === u_1.data.login; };
                 coreExports.info("Using a PAT from " +
                     u_1.data.login +
                     " with scopes: " +
-                    scopesToString((_m = u_1.headers) === null || _m === void 0 ? void 0 : _m["x-oauth-scopes"]));
-                return [3 /*break*/, 13];
-            case 12:
-                e_1 = _p.sent();
-                coreExports.debug(errorToString(e_1));
-                return [3 /*break*/, 13];
-            case 13:
-                commentId = null;
-                _p.label = 14;
+                    scopesToString((_p = u_1.headers) === null || _p === void 0 ? void 0 : _p["x-oauth-scopes"]));
+                return [3 /*break*/, 15];
             case 14:
-                _p.trys.push([14, 16, , 17]);
-                return [4 /*yield*/, github.rest.issues.listComments(__assign(__assign({}, utilsExports.context.repo), { issue_number: utilsExports.context.issue.number }))];
+                e_1 = _r.sent();
+                coreExports.debug(errorToString(e_1));
+                return [3 /*break*/, 15];
             case 15:
-                comments = (_p.sent()).data.filter(filter);
+                commentId = null;
+                _r.label = 16;
+            case 16:
+                _r.trys.push([16, 18, , 19]);
+                return [4 /*yield*/, github.rest.issues.listComments(__assign(__assign({}, utilsExports.context.repo), { issue_number: utilsExports.context.issue.number }))];
+            case 17:
+                comments = (_r.sent()).data.filter(filter);
                 for (i = comments.length - 1; i >= 0; i--) {
                     c = comments[i];
-                    if (!((_o = c.body) === null || _o === void 0 ? void 0 : _o.includes(signature)))
+                    if (!((_q = c.body) === null || _q === void 0 ? void 0 : _q.includes(signature)))
                         continue;
                     commentId = c.id;
                 }
-                return [3 /*break*/, 17];
-            case 16:
-                e_2 = _p.sent();
-                coreExports.error(errorToString(e_2));
-                return [3 /*break*/, 17];
-            case 17:
-                if (!commentId) return [3 /*break*/, 21];
-                _p.label = 18;
+                return [3 /*break*/, 19];
             case 18:
-                _p.trys.push([18, 20, , 21]);
-                return [4 /*yield*/, github.rest.issues.updateComment(__assign(__assign({}, utilsExports.context.repo), { comment_id: commentId, body: body }))];
+                e_2 = _r.sent();
+                coreExports.error(errorToString(e_2));
+                return [3 /*break*/, 19];
             case 19:
-                _p.sent();
-                return [2 /*return*/];
+                if (!commentId) return [3 /*break*/, 23];
+                _r.label = 20;
             case 20:
-                e_3 = _p.sent();
+                _r.trys.push([20, 22, , 23]);
+                return [4 /*yield*/, github.rest.issues.updateComment(__assign(__assign({}, utilsExports.context.repo), { comment_id: commentId, body: body }))];
+            case 21:
+                _r.sent();
+                return [2 /*return*/];
+            case 22:
+                e_3 = _r.sent();
                 coreExports.debug(errorToString(e_3));
-                return [3 /*break*/, 21];
-            case 21: 
+                return [3 /*break*/, 23];
+            case 23: 
             // Create new comment if no existing comment was found or update failed
             return [4 /*yield*/, github.rest.issues
                     .createComment(__assign(__assign({}, utilsExports.context.repo), { issue_number: utilsExports.context.issue.number, body: body }))
@@ -39068,9 +39089,9 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                         e.message +
                         (e.stack ? ". Stack: " + e.stack : ""));
                 })];
-            case 22:
+            case 24:
                 // Create new comment if no existing comment was found or update failed
-                _p.sent();
+                _r.sent();
                 return [2 /*return*/];
         }
     });

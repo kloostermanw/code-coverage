@@ -75,14 +75,27 @@ const asList = <T>(arg: undefined | T | T[]): T[] =>
  * Parses a Clover XML string and converts it to Stats
  * 
  * @param str - Clover XML string
+ * @param pullRequestFiles - Optional array of files to include in the coverage data
  * @returns Stats object representing the coverage data
  */
-export const fromString = (str: string): Stats => {
+export const fromString = (str: string, pullRequestFiles = []): Stats => {
   // Parse the XML to JSON and extract project data
   const cloverData = parseCloverXML(str);
   
   // Combine all files from packages and project root
-  const allFiles = getAllFiles(cloverData);
+  let allFiles = getAllFiles(cloverData);
+
+  console.log("allFiles: ", allFiles);
+
+  if (pullRequestFiles.length > 0) {
+      //*** Filter files by pull request files ***/
+     const filteredFiles = allFiles.filter(file => {
+       const fileName = file._attributes.name;
+       return pullRequestFiles.some(f => f.includes(fileName));
+     });
+
+      allFiles = filteredFiles;
+  }
 
   console.log("allFiles: ", allFiles);
   
