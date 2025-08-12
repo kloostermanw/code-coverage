@@ -85,8 +85,6 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
   // Combine all files from packages and project root
   let allFiles = getAllFiles(cloverData);
 
-  console.log("allFiles: ", allFiles);
-
   if (pullRequestFiles.length > 0) {
       //*** Filter files by pull request files ***/
      const filteredFiles = allFiles.filter(file => {
@@ -97,7 +95,7 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
       allFiles = filteredFiles;
   }
 
-  console.log("allFiles: ", allFiles);
+  console.log("fromString allFiles: ", allFiles);
   
   // Create total coverage metrics
   const totalMetrics = createTotalMetrics(cloverData.metrics._attributes);

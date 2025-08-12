@@ -38238,7 +38238,6 @@ var fromString = function (str, pullRequestFiles) {
     var cloverData = parseCloverXML(str);
     // Combine all files from packages and project root
     var allFiles = getAllFiles(cloverData);
-    console.log("allFiles: ", allFiles);
     if (pullRequestFiles.length > 0) {
         //*** Filter files by pull request files ***/
         var filteredFiles = allFiles.filter(function (file) {
@@ -38247,7 +38246,7 @@ var fromString = function (str, pullRequestFiles) {
         });
         allFiles = filteredFiles;
     }
-    console.log("allFiles: ", allFiles);
+    console.log("fromString allFiles: ", allFiles);
     // Create total coverage metrics
     var totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
     // Process files and group by folders
