@@ -125,7 +125,6 @@ const comment = async (
           delta: tableWithChangeAbove,
         },
         oldStats,
-        pullRequestFiles
       ),
       oldStats,
       {
@@ -156,7 +155,6 @@ const comment = async (
  * @param onlyBetween.max - Maximum coverage percentage to include
  * @param onlyBetween.delta - Minimum coverage change to include
  * @param o - Previous coverage statistics for comparison
- * @param pullRequestFiles
  * @returns Filtered coverage statistics
  */
 const filter = (
@@ -171,8 +169,7 @@ const filter = (
     max: number;
     delta: number;
   },
-  o: Stats = null,
-  pullRequestFiles: Array<string>
+  o: Stats = null
 ): Stats => {
   const filters: ((f: File, folder: string) => boolean)[] = [];
   const w = workspace.endsWith("/") ? workspace : workspace.concat("/");
@@ -182,15 +179,6 @@ const filter = (
 
   // Filter files with no coverable lines
   if (onlyWith.coverableLines) filters.push((f) => f.metrics.lines.total !== 0);
-
-  if (pullRequestFiles.length > 0) {
-    filters.push((f) => {
-      const fileName = f.name.startsWith(w) ? f.name.slice(w.length) : f.name;
-      console.log('fileName: ', fileName);
-      return pullRequestFiles.includes(fileName);
-    });
-
-  }
 
   if (onlyBetween.type) {
     // Filter files outside the specified coverage percentage range
@@ -371,6 +359,8 @@ const run = async () => {
 
   // Parse current coverage file
   const cStats = fromString((await promisify(readFile)(file)).toString());
+
+  console.log('cStats: ', cStats);
 
   // Check if base coverage file exists
   if (baseFile && !existsSync(baseFile)) {

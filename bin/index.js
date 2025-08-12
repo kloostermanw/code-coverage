@@ -38641,7 +38641,7 @@ var iconEquals = coreExports.getInput("icon-equals") || ":stop_button:";
 var iconIncreased = coreExports.getInput("icon-increased") || ":arrow_up_small:";
 var iconDecreased = coreExports.getInput("icon-decreased") || ":arrow_down_small:";
 var iconNew = coreExports.getInput("icon-new") || ":new:";
-var pullRequestFiles = coreExports.getInput("pull-request-files").split(',');
+coreExports.getInput("pull-request-files").split(',');
 /**
  * Generates the comment content with coverage information
  *
@@ -38670,7 +38670,7 @@ var comment = function (cStats, oldStats, coverageType, withChart, withTable) { 
                     min: tableWithOnlyAbove,
                     max: tableWithOnlyBellow,
                     delta: tableWithChangeAbove,
-                }, oldStats, pullRequestFiles), oldStats, {
+                }, oldStats), oldStats, {
                     withTable: withTable,
                     deltaPerFile: showPercentageChangePerFile,
                     showBranchesColumn: showBranchesColumn,
@@ -38696,26 +38696,18 @@ var comment = function (cStats, oldStats, coverageType, withChart, withTable) { 
  * @param onlyBetween.max - Maximum coverage percentage to include
  * @param onlyBetween.delta - Minimum coverage change to include
  * @param o - Previous coverage statistics for comparison
- * @param pullRequestFiles
  * @returns Filtered coverage statistics
  */
-var filter = function (s, onlyWith, onlyBetween, o, pullRequestFiles) {
+var filter = function (s, onlyWith, onlyBetween, o) {
     if (o === void 0) { o = null; }
     var filters = [];
-    var w = workspace.endsWith("/") ? workspace : workspace.concat("/");
+    workspace.endsWith("/") ? workspace : workspace.concat("/");
     // Filter files with no coverage
     if (onlyWith.cover)
         filters.push(function (f) { return f.metrics.lines.covered !== 0; });
     // Filter files with no coverable lines
     if (onlyWith.coverableLines)
         filters.push(function (f) { return f.metrics.lines.total !== 0; });
-    if (pullRequestFiles.length > 0) {
-        filters.push(function (f) {
-            var fileName = f.name.startsWith(w) ? f.name.slice(w.length) : f.name;
-            console.log('fileName: ', fileName);
-            return pullRequestFiles.includes(fileName);
-        });
-    }
     {
         // Filter files outside the specified coverage percentage range
         if (onlyBetween.min > 0 || onlyBetween.max < 100)
@@ -38874,6 +38866,7 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                 return [4 /*yield*/, require$$1$2.promisify(require$$1$1.readFile)(file)];
             case 1:
                 cStats = _a.apply(void 0, [(_p.sent()).toString()]);
+                console.log('cStats: ', cStats);
                 // Check if base coverage file exists
                 if (baseFile && !require$$1$1.existsSync(baseFile)) {
                     coreExports.error("base file \"".concat(baseFile, "\" ").concat(notFoundMessage));
