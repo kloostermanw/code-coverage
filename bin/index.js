@@ -38236,6 +38236,7 @@ var fromString = function (str) {
     var cloverData = parseCloverXML(str);
     // Combine all files from packages and project root
     var allFiles = getAllFiles(cloverData);
+    console.log("allFiles: ", allFiles);
     // Create total coverage metrics
     var totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
     // Process files and group by folders

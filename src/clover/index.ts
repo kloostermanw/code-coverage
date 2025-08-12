@@ -83,6 +83,8 @@ export const fromString = (str: string): Stats => {
   
   // Combine all files from packages and project root
   const allFiles = getAllFiles(cloverData);
+
+  console.log("allFiles: ", allFiles);
   
   // Create total coverage metrics
   const totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
