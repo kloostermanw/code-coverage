@@ -5,6 +5,7 @@
 
 import { xml2json } from "xml-js";
 import { Coverage, Folder, Stats } from "../types";
+import {getInput} from "@actions/core";
 
 /**
  * Interface representing metrics in Clover XML format
@@ -62,6 +63,8 @@ interface CloverXML {
   };
 }
 
+const workspace = getInput("dir-prefix") || process.env.GITHUB_WORKSPACE;
+
 /**
  * Converts a value to an array, handling undefined, single items, and arrays
  * 
@@ -87,8 +90,10 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
   
   // Filter files by pull request files if specified
   if (pullRequestFiles.length > 0) {
+    const w = workspace.endsWith("/") ? workspace : workspace.concat("/");
+
     allFiles = allFiles.filter(file => {
-      const fileName = file._attributes.name;
+      const fileName = file._attributes.name.startsWith(w) ? file._attributes.name.slice(w.length) : file._attributes.name;
       return pullRequestFiles.some(f => f.includes(fileName));
     });
   }
