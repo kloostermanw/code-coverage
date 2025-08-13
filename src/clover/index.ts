@@ -102,6 +102,8 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
   
   // Create total coverage metrics
   const totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
+
+  console.log("totalMetrics: ", totalMetrics);
   
   // Process files and group by folders
   const foldersMap = processFilesIntoFolders(allFiles);

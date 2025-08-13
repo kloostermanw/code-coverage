@@ -38250,6 +38250,7 @@ var fromString = function (str, pullRequestFiles) {
     console.log("fromString allFiles: ", allFiles);
     // Create total coverage metrics
     var totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
+    console.log("totalMetrics: ", totalMetrics);
     // Process files and group by folders
     var foldersMap = processFilesIntoFolders(allFiles);
     return new Stats(totalMetrics, foldersMap);
