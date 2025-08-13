@@ -38263,6 +38263,9 @@ var fromString = function (str, pullRequestFiles) {
             coveredMethods_1 += file.metrics._attributes.coveredmethods;
             conditionals_1 += file.metrics._attributes.conditionals;
             coveredConditionals_1 += file.metrics._attributes.coveredconditionals;
+            console.log("file: ", file);
+            console.log("file.metrics: ", file.metrics);
+            console.log("file.metrics._attributes: ", file.metrics._attributes);
         });
         totalMetrics = {
             lines: new Coverage(statements_1, coveredStatements_1),

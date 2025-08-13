@@ -117,6 +117,10 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
             coveredMethods += file.metrics._attributes.coveredmethods;
             conditionals += file.metrics._attributes.conditionals;
             coveredConditionals += file.metrics._attributes.coveredconditionals;
+
+            console.log("file: ", file);
+            console.log("file.metrics: ", file.metrics);
+            console.log("file.metrics._attributes: ", file.metrics._attributes);
         })
 
         totalMetrics = {
