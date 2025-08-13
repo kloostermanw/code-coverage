@@ -395,6 +395,14 @@ ${await comment(
   withTable
 )}
 
+${await comment(
+    prStats,
+    null,
+    tableWithTypeLimit as keyof Metrics,
+    withChart,
+    withTable
+)}
+
 ${signature}`;
 
   // Generate GitHub Actions summary
