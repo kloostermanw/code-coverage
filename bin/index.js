@@ -38216,6 +38216,7 @@ var Stats = /** @class */ (function () {
  * Clover module for parsing Clover XML coverage reports
  * This module converts Clover XML data into the project's internal data structures
  */
+var workspace$1 = coreExports.getInput("dir-prefix") || process.env.GITHUB_WORKSPACE;
 /**
  * Converts a value to an array, handling undefined, single items, and arrays
  *
@@ -38240,8 +38241,9 @@ var fromString = function (str, pullRequestFiles) {
     var allFiles = getAllFiles(cloverData);
     // Filter files by pull request files if specified
     if (pullRequestFiles.length > 0) {
+        var w_1 = workspace$1.endsWith("/") ? workspace$1 : workspace$1.concat("/");
         allFiles = allFiles.filter(function (file) {
-            var fileName = file._attributes.name;
+            var fileName = file._attributes.name.startsWith(w_1) ? file._attributes.name.slice(w_1.length) : file._attributes.name;
             return pullRequestFiles.some(function (f) { return f.includes(fileName); });
         });
     }
