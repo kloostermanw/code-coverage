@@ -387,6 +387,8 @@ File: \`${file}\`
 
 ${msgs.map((m) => `> :warning: ${m}`).join("\n")}
 
+Total project
+
 ${await comment(
   cStats,
   oldStats,
@@ -394,6 +396,8 @@ ${await comment(
   withChart,
   withTable
 )}
+
+This PR
 
 ${await comment(
     prStats,
@@ -431,6 +435,20 @@ ${signature}`;
       true
     )
     .write();
+
+    await summary
+        .addBreak()
+        .addRaw(
+            await comment(
+                prStats,
+                null,
+                tableWithTypeLimit as keyof Metrics,
+                true,
+                false
+            ),
+            true
+        )
+        .write();
 
   // Exit if not in a pull request context
   if (context.eventName !== "pull_request") {
