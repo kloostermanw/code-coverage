@@ -38237,6 +38237,7 @@ var fromString = function (str, pullRequestFiles) {
     if (pullRequestFiles === void 0) { pullRequestFiles = []; }
     // Parse the XML to JSON and extract project data
     var cloverData = parseCloverXML(str);
+    console.log("cloverData: ", cloverData);
     // Combine all files from packages and project root
     var allFiles = getAllFiles(cloverData);
     // Filter files by pull request files if specified
