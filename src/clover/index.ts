@@ -82,35 +82,57 @@ const asList = <T>(arg: undefined | T | T[]): T[] =>
  * @returns Stats object representing the coverage data
  */
 export const fromString = (str: string, pullRequestFiles = []): Stats => {
-  // Parse the XML to JSON and extract project data
-  const cloverData = parseCloverXML(str);
+    // Parse the XML to JSON and extract project data
+    const cloverData = parseCloverXML(str);
 
     console.log("cloverData: ", cloverData);
   
-  // Combine all files from packages and project root
-  let allFiles = getAllFiles(cloverData);
+    // Combine all files from packages and project root
+    let allFiles = getAllFiles(cloverData);
+
+    // Create total coverage metrics
+    let totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
   
-  // Filter files by pull request files if specified
-  if (pullRequestFiles.length > 0) {
-    const w = workspace.endsWith("/") ? workspace : workspace.concat("/");
+    // Filter files by pull request files if specified
+    if (pullRequestFiles.length > 0) {
+        const w = workspace.endsWith("/") ? workspace : workspace.concat("/");
 
-    allFiles = allFiles.filter(file => {
-      const fileName = file._attributes.name.startsWith(w) ? file._attributes.name.slice(w.length) : file._attributes.name;
-      return pullRequestFiles.some(f => f.includes(fileName));
-    });
-  }
+        allFiles = allFiles.filter(file => {
+          const fileName = file._attributes.name.startsWith(w) ? file._attributes.name.slice(w.length) : file._attributes.name;
+          return pullRequestFiles.some(f => f.includes(fileName));
+        });
 
-  console.log("fromString allFiles: ", allFiles);
-  
-  // Create total coverage metrics
-  const totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
+        // The CloverData.metrics need to be updated to reflect the filtered files
+        let statements = 0;
+        let coveredStatements = 0;
+        let methods = 0;
+        let coveredMethods = 0;
+        let conditionals = 0;
+        let coveredConditionals = 0;
 
-  console.log("totalMetrics: ", totalMetrics);
+        allFiles.forEach(file => {
+            statements += file.metrics._attributes.statements;
+            coveredStatements += file.metrics._attributes.coveredstatements;
+            methods += file.metrics._attributes.methods;
+            coveredMethods += file.metrics._attributes.coveredmethods;
+            conditionals += file.metrics._attributes.conditionals;
+            coveredConditionals += file.metrics._attributes.coveredconditionals;
+        })
 
-  // Process files and group by folders
-  const foldersMap = processFilesIntoFolders(allFiles);
-  
-  return new Stats(totalMetrics, foldersMap);
+        totalMetrics = {
+            lines: new Coverage(statements, coveredStatements),
+            methods: new Coverage(methods, coveredMethods),
+            branches: new Coverage(conditionals, coveredConditionals),
+        };
+    }
+
+    console.log("fromString allFiles: ", allFiles);
+    console.log("totalMetrics: ", totalMetrics);
+
+    // Process files and group by folders
+    const foldersMap = processFilesIntoFolders(allFiles);
+
+    return new Stats(totalMetrics, foldersMap);
 };
 
 /**

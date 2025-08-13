@@ -38240,6 +38240,8 @@ var fromString = function (str, pullRequestFiles) {
     console.log("cloverData: ", cloverData);
     // Combine all files from packages and project root
     var allFiles = getAllFiles(cloverData);
+    // Create total coverage metrics
+    var totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
     // Filter files by pull request files if specified
     if (pullRequestFiles.length > 0) {
         var w_1 = workspace$1.endsWith("/") ? workspace$1 : workspace$1.concat("/");
@@ -38247,10 +38249,28 @@ var fromString = function (str, pullRequestFiles) {
             var fileName = file._attributes.name.startsWith(w_1) ? file._attributes.name.slice(w_1.length) : file._attributes.name;
             return pullRequestFiles.some(function (f) { return f.includes(fileName); });
         });
+        // The CloverData.metrics need to be updated to reflect the filtered files
+        var statements_1 = 0;
+        var coveredStatements_1 = 0;
+        var methods_1 = 0;
+        var coveredMethods_1 = 0;
+        var conditionals_1 = 0;
+        var coveredConditionals_1 = 0;
+        allFiles.forEach(function (file) {
+            statements_1 += file.metrics._attributes.statements;
+            coveredStatements_1 += file.metrics._attributes.coveredstatements;
+            methods_1 += file.metrics._attributes.methods;
+            coveredMethods_1 += file.metrics._attributes.coveredmethods;
+            conditionals_1 += file.metrics._attributes.conditionals;
+            coveredConditionals_1 += file.metrics._attributes.coveredconditionals;
+        });
+        totalMetrics = {
+            lines: new Coverage(statements_1, coveredStatements_1),
+            methods: new Coverage(methods_1, coveredMethods_1),
+            branches: new Coverage(conditionals_1, coveredConditionals_1),
+        };
     }
     console.log("fromString allFiles: ", allFiles);
-    // Create total coverage metrics
-    var totalMetrics = createTotalMetrics(cloverData.metrics._attributes);
     console.log("totalMetrics: ", totalMetrics);
     // Process files and group by folders
     var foldersMap = processFilesIntoFolders(allFiles);
