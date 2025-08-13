@@ -84,15 +84,13 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
   
   // Combine all files from packages and project root
   let allFiles = getAllFiles(cloverData);
-
+  
+  // Filter files by pull request files if specified
   if (pullRequestFiles.length > 0) {
-      //*** Filter files by pull request files ***/
-     const filteredFiles = allFiles.filter(file => {
-       const fileName = file._attributes.name;
-       return pullRequestFiles.some(f => f.includes(fileName));
-     });
-
-      allFiles = filteredFiles;
+    allFiles = allFiles.filter(file => {
+      const fileName = file._attributes.name;
+      return pullRequestFiles.some(f => f.includes(fileName));
+    });
   }
 
   console.log("fromString allFiles: ", allFiles);
