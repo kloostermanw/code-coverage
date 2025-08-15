@@ -362,6 +362,8 @@ const run = async () => {
   console.log('cStats: ', cStats);
 
   const prStats = (pullRequestFiles.length > 0) && fromString((await promisify(readFile)(file)).toString(), pullRequestFiles);
+
+  console.log(pullRequestFiles);
   console.log('prStats: ', prStats);
 
   // Check if base coverage file exists
