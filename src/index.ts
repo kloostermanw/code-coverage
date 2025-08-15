@@ -208,7 +208,7 @@ const filter = (
       });
   }
 
-  console.log('s: ', s);
+  // console.log('s: ', s);
 
   // If no filters are applied, return the original stats
   if (filters.length === 0) {
@@ -359,12 +359,12 @@ const run = async () => {
 
   // Parse current coverage file
   const cStats = fromString((await promisify(readFile)(file)).toString());
-  console.log('cStats: ', cStats);
+  // console.log('cStats: ', cStats);
 
   const prStats = (pullRequestFiles.length > 0) && fromString((await promisify(readFile)(file)).toString(), pullRequestFiles);
 
   console.log(pullRequestFiles);
-  console.log('prStats: ', prStats);
+  // console.log('prStats: ', prStats);
 
   // Check if base coverage file exists
   if (baseFile && !existsSync(baseFile)) {

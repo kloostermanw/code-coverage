@@ -38237,7 +38237,7 @@ var fromString = function (str, pullRequestFiles) {
     if (pullRequestFiles === void 0) { pullRequestFiles = []; }
     // Parse the XML to JSON and extract project data
     var cloverData = parseCloverXML(str);
-    console.log("cloverData: ", cloverData);
+    // console.log("cloverData: ", cloverData);
     // Combine all files from packages and project root
     var allFiles = getAllFiles(cloverData);
     // Create total coverage metrics
@@ -38263,9 +38263,9 @@ var fromString = function (str, pullRequestFiles) {
             coveredMethods_1 += file.metrics._attributes.coveredmethods;
             conditionals_1 += file.metrics._attributes.conditionals;
             coveredConditionals_1 += file.metrics._attributes.coveredconditionals;
-            console.log("file: ", file);
-            console.log("file.metrics: ", file.metrics);
-            console.log("file.metrics._attributes: ", file.metrics._attributes);
+            // console.log("file: ", file);
+            // console.log("file.metrics: ", file.metrics);
+            // console.log("file.metrics._attributes: ", file.metrics._attributes);
         });
         totalMetrics = {
             lines: new Coverage(statements_1, coveredStatements_1),
@@ -38273,8 +38273,8 @@ var fromString = function (str, pullRequestFiles) {
             branches: new Coverage(conditionals_1, coveredConditionals_1),
         };
     }
-    console.log("fromString allFiles: ", allFiles);
-    console.log("totalMetrics: ", totalMetrics);
+    // console.log("fromString allFiles: ", allFiles);
+    // console.log("totalMetrics: ", totalMetrics);
     // Process files and group by folders
     var foldersMap = processFilesIntoFolders(allFiles);
     return new Stats(totalMetrics, foldersMap);
@@ -38843,7 +38843,7 @@ var filter = function (s, onlyWith, onlyBetween, o) {
                         onlyBetween.delta);
             });
     }
-    console.log('s: ', s);
+    // console.log('s: ', s);
     // If no filters are applied, return the original stats
     if (filters.length === 0) {
         return s;
@@ -38984,7 +38984,6 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                 return [4 /*yield*/, require$$1$2.promisify(require$$1$1.readFile)(file)];
             case 1:
                 cStats = _a.apply(void 0, [(_v.sent()).toString()]);
-                console.log('cStats: ', cStats);
                 _b = (pullRequestFiles.length > 0);
                 if (!_b) return [3 /*break*/, 3];
                 _c = fromString;
@@ -38994,7 +38993,8 @@ var run = function () { return __awaiter(void 0, void 0, void 0, function () {
                 _v.label = 3;
             case 3:
                 prStats = _b;
-                console.log('prStats: ', prStats);
+                console.log(pullRequestFiles);
+                // console.log('prStats: ', prStats);
                 // Check if base coverage file exists
                 if (baseFile && !require$$1$1.existsSync(baseFile)) {
                     coreExports.error("base file \"".concat(baseFile, "\" ").concat(notFoundMessage));
