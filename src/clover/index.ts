@@ -85,8 +85,6 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
     // Parse the XML to JSON and extract project data
     const cloverData = parseCloverXML(str);
 
-    // console.log("cloverData: ", cloverData);
-  
     // Combine all files from packages and project root
     let allFiles = getAllFiles(cloverData);
 
@@ -193,9 +191,6 @@ export const fromString = (str: string, pullRequestFiles = []): Stats => {
             branches: new Coverage(conditionals, coveredConditionals),
         };
     }
-
-    // console.log("fromString allFiles: ", allFiles);
-    // console.log("totalMetrics: ", totalMetrics);
 
     // Process files and group by folders
     const foldersMap = processFilesIntoFolders(allFiles);

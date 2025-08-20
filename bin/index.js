@@ -38131,7 +38131,6 @@ const asList = (arg) => !!arg ? (Array.isArray(arg) ? arg : [arg]) : [];
 const fromString = (str, pullRequestFiles = []) => {
     // Parse the XML to JSON and extract project data
     const cloverData = parseCloverXML(str);
-    // console.log("cloverData: ", cloverData);
     // Combine all files from packages and project root
     let allFiles = getAllFiles(cloverData);
     // Create total coverage metrics
@@ -38226,8 +38225,6 @@ const fromString = (str, pullRequestFiles = []) => {
             branches: new Coverage(conditionals, coveredConditionals),
         };
     }
-    // console.log("fromString allFiles: ", allFiles);
-    // console.log("totalMetrics: ", totalMetrics);
     // Process files and group by folders
     const foldersMap = processFilesIntoFolders(allFiles);
     return new Stats(totalMetrics, foldersMap);
@@ -38940,7 +38937,6 @@ const filter = (s, onlyWith, onlyBetween, o = null) => {
                         onlyBetween.delta);
             });
     }
-    // console.log('s: ', s);
     // If no filters are applied, return the original stats
     if (filters.length === 0) {
         return s;
@@ -39057,10 +39053,8 @@ const run = async () => {
     }
     // Parse current coverage file
     const cStats = fromString((await require$$1$2.promisify(require$$1$1.readFile)(file)).toString());
-    // console.log('cStats: ', cStats);
     const changes = await getPullRequestChanges();
     const prStats = (changes.length > 0) && fromString((await require$$1$2.promisify(require$$1$1.readFile)(file)).toString(), changes);
-    console.log(prStats);
     // Check if base coverage file exists
     if (baseFile && !require$$1$1.existsSync(baseFile)) {
         coreExports.error(`base file "${baseFile}" ${notFoundMessage}`);
